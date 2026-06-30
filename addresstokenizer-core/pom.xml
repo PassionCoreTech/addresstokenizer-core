@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>io.passioncore</groupId>
+		<artifactId>addresstokenizer-core-parent</artifactId>
+		<version>0.1.0</version>
+	</parent>
+
+	<artifactId>addresstokenizer-core</artifactId>
+	<name>addresstokenizer-core</name>
+	<url>https://github.com/PassionCoreTech/addresstokenizer-core</url>
+
+	<scm>
+		<connection>scm:git:https://github.com/PassionCoreTech/addresstokenizer-core.git</connection>
+		<developerConnection>scm:git:https://github.com/PassionCoreTech/addresstokenizer-core.git</developerConnection>
+		<url>https://github.com/PassionCoreTech/addresstokenizer-core</url>
+		<tag>HEAD</tag>
+	</scm>
+
+	<developers>
+		<developer>
+			<id>passioncore</id>
+			<name>PassionCore Technologies Inc.</name>
+			<email>dev@passioncore.io</email>
+			<organization>PassionCore Technologies Inc.</organization>
+			<organizationUrl>https://passioncore.io</organizationUrl>
+		</developer>
+	</developers>
+
+	<licenses>
+		<license>
+			<name>Apache License, Version 2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<description>
+        Address Tokenizer Core — open-source tier (Apache-2.0).
+        Includes the AddressParser SPI, shared model types, SWIFT normalization,
+        and country parsers for US, UK, DE, FR, AU, CA, and Quebec French.
+        No gazetteer database, no ISO 20022 enrichment layer, no JPA dependency.
+</description>
+
+	<dependencies>
+		<!-- Spring Boot core — auto-configuration infrastructure only -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-log4j2</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<!--
+		  spring-jdbc is optional: CountryDetector and TokenConfidenceRater accept a
+		  nullable JdbcTemplate so core works without a database. Pro brings the full
+		  spring-boot-starter-data-jpa stack which includes spring-jdbc at runtime.
+		-->
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-jdbc</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
