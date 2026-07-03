@@ -1,4 +1,4 @@
 # Copyright (c) 2026 PassionCore Technologies Inc. (dev@passioncore.io)
 # This file is part of Address Tokenizer Core.
-# SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Commercial
+# SPDX-License-Identifier: Apache-2.0
 io.passioncore.addresstokenizer.config.AddressTokenizerCoreAutoConfiguration

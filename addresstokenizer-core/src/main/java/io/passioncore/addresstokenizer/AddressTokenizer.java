@@ -44,9 +44,10 @@ import io.passioncore.addresstokenizer.utils.NormalizationUtil;
  * Core tokenisation pipeline.
  *
  * <p>Returns a {@link ParsedAddress} containing the detected country code,
- * a flat list of typed tokens ({@link AddressToken}), and a basic
- * {@code parseConfidence} score (0.0–1.0) derived from token coverage alone.
- * Enhanced confidence with gazetteer validation is a Pro-tier feature.</p>
+ * a flat list of typed tokens ({@link AddressToken}), named fields derived from
+ * those tokens ({@link #tokensToFields}), and a basic {@code parseConfidence}
+ * score (0.0–1.0) derived from token coverage alone. Enhanced confidence with
+ * gazetteer validation is a Pro-tier feature ({@link ParsedAddress#diagnostics()}).</p>
  *
  * <h3>Pipeline (parseLines)</h3>
  * <ol>
@@ -57,10 +58,11 @@ import io.passioncore.addresstokenizer.utils.NormalizationUtil;
  *   <li>Country re-detect after healing.</li>
  *   <li>Country-specific parser dispatch.</li>
  *   <li>PO Box reattach.</li>
+ *   <li>Named field mapping ({@link #tokensToFields}).</li>
  * </ol>
  */
 @Component
-public class AddressTokenizer {
+public class AddressTokenizer implements AddressParsingService {
 
     private static final Set<TokenType> MANDATORY_TYPES = Set.of(
         TokenType.STREET_NAME, TokenType.CITY, TokenType.POSTAL_CODE);
@@ -139,13 +141,89 @@ public class AddressTokenizer {
         }
 
         double conf = computeParseConfidence(parsed.tokens(), parsed.countryCode());
-        parsed = new ParsedAddress(parsed.raw(), parsed.countryCode(), conf, parsed.tokens());
 
-        if (poBoxToken == null) return parsed;
+        if (poBoxToken == null) {
+            return tokensToFields(parsed.raw(), parsed.countryCode(), conf, parsed.tokens());
+        }
         List<AddressToken> merged = new ArrayList<>(parsed.tokens().size() + 1);
         merged.add(poBoxToken);
         merged.addAll(parsed.tokens());
-        return new ParsedAddress(rawJoined, parsed.countryCode(), conf, merged);
+        return tokensToFields(rawJoined, parsed.countryCode(), conf, merged);
+    }
+
+    /**
+     * Central mapping step: derives {@link ParsedAddress} named fields from the token
+     * list. Assembles {@code streetName} from {@code STREET_NAME}/{@code STREET_TYPE}/
+     * {@code DIRECTION} tokens (French layout: type precedes name; English: name precedes
+     * type), and applies the same SWIFT field-length caps used for pacs.008 output.
+     * Called once, after all parsing/healing/PO-Box steps are complete.
+     */
+    private static ParsedAddress tokensToFields(
+            String raw, String countryCode, double parseConfidence, List<AddressToken> tokens) {
+        String streetName   = cap(assembleStreetName(tokens), 70);
+        String buildingName = cap(firstValue(tokens, TokenType.HOUSE_NO, TokenType.BUILDING_NAME), 16);
+        String unit         = firstValue(tokens, TokenType.UNIT);
+        String floor        = cap(firstValue(tokens, TokenType.FLOOR), 70);
+        String city         = cap(firstValue(tokens, TokenType.CITY), 35);
+        String district     = cap(firstValue(tokens, TokenType.DISTRICT), 35);
+        String state        = firstValue(tokens, TokenType.STATE_CODE, TokenType.STATE);
+        String postalCode   = cap(firstValue(tokens, TokenType.POSTAL_CODE), 16);
+
+        return new ParsedAddress(raw, countryCode, parseConfidence,
+            streetName, buildingName, unit, floor, city, district, state, postalCode,
+            tokens, null);
+    }
+
+    /**
+     * Assembles the street name from token order: French layout has
+     * {@code STREET_TYPE} before {@code STREET_NAME} (e.g. {@code RUE SAINT-DENIS});
+     * English layout has {@code STREET_NAME} before {@code STREET_TYPE}
+     * (e.g. {@code MAIN ST}).
+     */
+    private static String assembleStreetName(List<AddressToken> tokens) {
+        String name = firstValue(tokens, TokenType.STREET_NAME);
+        String type = firstValue(tokens, TokenType.STREET_TYPE);
+        String dir  = firstValue(tokens, TokenType.DIRECTION);
+        name = name == null ? "" : name;
+        type = type == null ? "" : type;
+        dir  = dir  == null ? "" : dir;
+
+        if (name.isBlank() && type.isBlank()) return null;
+
+        String s;
+        if (!type.isBlank() && !name.isBlank()) {
+            int typeIdx = tokenIndex(tokens, TokenType.STREET_TYPE);
+            int nameIdx = tokenIndex(tokens, TokenType.STREET_NAME);
+            if (typeIdx >= 0 && nameIdx >= 0 && typeIdx < nameIdx) {
+                s = type + " " + name + (dir.isBlank() ? "" : " " + dir);
+            } else {
+                s = (name + " " + type).trim();
+            }
+        } else {
+            s = (name + " " + type).trim();
+        }
+        return s.isBlank() ? null : s;
+    }
+
+    /** Returns the value of the first token matching any of {@code types}, in priority order. */
+    private static String firstValue(List<AddressToken> tokens, TokenType... types) {
+        for (TokenType type : types) {
+            for (AddressToken t : tokens) {
+                if (t.type() == type) return t.value();
+            }
+        }
+        return null;
+    }
+
+    private static int tokenIndex(List<AddressToken> tokens, TokenType type) {
+        for (int i = 0; i < tokens.size(); i++) {
+            if (tokens.get(i).type() == type) return i;
+        }
+        return -1;
+    }
+
+    private static String cap(String s, int max) {
+        return s != null && s.length() > max ? s.substring(0, max) : s;
     }
 
     private static double computeParseConfidence(List<AddressToken> tokens, String countryCode) {

@@ -12,11 +12,13 @@ for [pacs.008 CBPR+](https://www.swift.com/standards/iso-20022/cbpr-plus) field 
 
 ## API Stability
 
-This library is at **v0.1.0** — early release.
+This library is at **v0.2.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
-The public API (`ParsedAddress` shape, service interface) may change before v1.0
-while the unified API refactor is being finalised.
+v0.2.0 lands the unified API refactor: Core and Pro now share the
+`AddressParsingService` interface and a single `ParsedAddress` return type
+(a **breaking change** from v0.1.0 — see CHANGELOG). The shape may still
+evolve before v1.0.
 
 For production deployments or enterprise licensing contact **dev@passioncore.io**.
 
@@ -48,7 +50,7 @@ Application code that calls `AddressTokenizer.parse()` continues to work unchang
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 

@@ -23,28 +23,64 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
- * Immutable output of the core tokenisation pipeline.
+ * Immutable output of address parsing — the return type of
+ * {@link io.passioncore.addresstokenizer.AddressParsingService}.
  *
- * <p>Contains the detected country code, a flat list of typed tokens, and
- * a {@code parseConfidence} score (0.0–1.0) computed from the token set alone —
- * no gazetteer lookup required. Full confidence with gazetteer validation is a
- * Pro-tier feature ({@code AddressResult.confidence()}).</p>
+ * <p>Named fields ({@link #streetName()}, {@link #city()}, etc.) are populated by
+ * {@link io.passioncore.addresstokenizer.AddressTokenizer} from the token list in one
+ * central mapping step; the token list ({@link #tokens()}) is retained for diagnostics
+ * and backward compatibility with {@link #get(TokenType)}. {@code parseConfidence}
+ * (0.0–1.0) is computed from token coverage alone — no gazetteer lookup required.</p>
+ *
+ * <p>{@link #diagnostics()} is {@code null} for Core-only parsing. Pro's
+ * {@code AddressEnrichmentService} returns a {@link ParsedAddress} with the same named
+ * fields (potentially corrected via gazetteer/postal-code enrichment) plus a populated
+ * {@link ParseDiagnostics} for weighted confidence, ISO 20022 structure, and trace logs.</p>
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ParsedAddress(
     String raw,
     String countryCode,
     /** Basic parse confidence (0.0–1.0) computed from token coverage.
      *  Scores presence of STREET_NAME, CITY, POSTAL_CODE, and HOUSE_NO/BUILDING_NAME;
      *  applies penalties for UNKNOWN tokens and undetected country.
-     *  Pro provides enhanced confidence with gazetteer validation and field-level breakdown. */
+     *  Pro provides enhanced confidence with gazetteer validation — see
+     *  {@link ParseDiagnostics#confidence()}. */
     double parseConfidence,
-    List<AddressToken> tokens
+
+    // Named fields — populated by AddressTokenizer.tokensToFields() after parsing.
+    // Null until that mapping step runs (e.g. on a parser's raw, intermediate return value).
+    String streetName,
+    String buildingName,
+    String unit,
+    String floor,
+    String city,
+    String district,
+    String state,
+    String postalCode,
+
+    /** Full token list — retained for diagnostics and {@link #get(TokenType)} lookups. */
+    List<AddressToken> tokens,
+
+    /** Pro-tier enrichment diagnostics. {@code null} for Core-only parsing. */
+    ParseDiagnostics diagnostics
 ) {
     /** Convenience constructor for parsers — {@code parseConfidence} defaults to 0.0 and is
      *  injected by {@code AddressTokenizer} after all token enrichment is complete. */
     public ParsedAddress(String raw, String countryCode, List<AddressToken> tokens) {
         this(raw, countryCode, 0.0, tokens);
+    }
+
+    /** Convenience constructor for parsers — named fields are populated later by
+     *  {@code AddressTokenizer.tokensToFields()}; {@code diagnostics} is Pro-only. */
+    public ParsedAddress(String raw, String countryCode, double parseConfidence, List<AddressToken> tokens) {
+        this(raw, countryCode, parseConfidence,
+            null, null, null, null, null, null, null, null,
+            tokens, null);
     }
 
     public Optional<String> get(TokenType type) {
@@ -63,21 +99,11 @@ public record ParsedAddress(
             ));
     }
 
-    // Named convenience accessors — thin projections over the token list.
-    // These are the stable public API; callers should prefer these over get(TokenType).
-
-    public String streetName()   { return get(TokenType.STREET_NAME).orElse(null); }
-    public String buildingName() {
-        return get(TokenType.HOUSE_NO).or(() -> get(TokenType.BUILDING_NAME)).orElse(null);
-    }
-    public String unit()         { return get(TokenType.UNIT).orElse(null); }
-    public String floor()        { return get(TokenType.FLOOR).orElse(null); }
-    public String city()         { return get(TokenType.CITY).orElse(null); }
-    public String district()     { return get(TokenType.DISTRICT).orElse(null); }
-    public String state() {
-        return get(TokenType.STATE_CODE).or(() -> get(TokenType.STATE)).orElse(null);
-    }
-    public String postalCode()   { return get(TokenType.POSTAL_CODE).orElse(null); }
+    /** Resolved country — the {@code COUNTRY_CODE}/{@code COUNTRY} token if present,
+     *  otherwise falls back to the detected {@link #countryCode()}.
+     *  Annotated explicitly since it is a derived method, not a canonical record
+     *  component — without {@code @JsonProperty}, Jackson would omit it from JSON. */
+    @JsonProperty("country")
     public String country() {
         return get(TokenType.COUNTRY_CODE).or(() -> get(TokenType.COUNTRY)).orElse(countryCode());
     }

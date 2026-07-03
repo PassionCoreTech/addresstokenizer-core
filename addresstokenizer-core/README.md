@@ -6,11 +6,12 @@ Provides the `AddressParser` SPI, shared model types, SWIFT ASCII normalization,
 
 ## API Stability
 
-This library is at **v0.1.0** — early release.
+This library is at **v0.2.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
-The public API (`ParsedAddress` shape, service interface) may change before v1.0
-while the unified API refactor is being finalised.
+`ParsedAddress` now carries named fields (`streetName()`, `city()`, …) directly as
+record components, plus an optional `diagnostics()` for Pro-tier enrichment — see
+"Upgrading from Core to Pro" below. The shape may still evolve before v1.0.
 
 For production deployments or enterprise licensing contact **dev@passioncore.io**.
 
@@ -19,20 +20,43 @@ For production deployments or enterprise licensing contact **dev@passioncore.io*
 | Feature | Core (Apache-2.0) | Pro (Commercial) |
 |---|---|---|
 | Address tokenisation (US, UK, DE, FR, AU, CA, Quebec) | ✓ | ✓ |
-| `parse(String)` / `parseLines(List<String>)` | ✓ | ✓ |
+| `AddressParsingService.parse(String)` / `parseLines(List<String>)` | ✓ | ✓ |
 | Named field accessors (`city()`, `streetName()`, `postalCode()`, …) | ✓ | ✓ |
 | Basic parse confidence (`parseConfidence`) | ✓ | ✓ |
 | More country parsers (HK, SG, JP, BR) | — | ✓ |
 | Gazetteer enrichment (IATA, GeoNames, OurAirports) | — | ✓ |
 | Postal code → city lookup | — | ✓ |
-| Weighted aggregate confidence | — | ✓ |
-| Field-level confidence | — | ✓ |
-| Trace logs | — | ✓ |
-| Corrections map | — | ✓ |
-| ISO 20022 / pacs.008 structured output | — | ✓ |
+| `diagnostics()` — weighted aggregate confidence | — | ✓ |
+| `diagnostics()` — field-level confidence | — | ✓ |
+| `diagnostics()` — trace logs | — | ✓ |
+| `diagnostics()` — corrections map | — | ✓ |
+| `diagnostics()` — ISO 20022 / pacs.008 structured output | — | ✓ |
 
-Upgrading from Core to Pro requires only adding the Pro dependency.
-Application code that calls `AddressTokenizer.parse()` continues to work unchanged.
+Upgrading from Core to Pro requires only adding the Pro dependency and swapping which
+`AddressParsingService` bean is injected — see "Upgrading from Core to Pro" below.
+
+---
+
+## Upgrading from Core to Pro
+
+Both `AddressTokenizer` (Core) and `AddressEnrichmentService` (Pro) implement the same
+`AddressParsingService` interface and return the same `ParsedAddress` type. Program
+against the interface and the call site never changes:
+
+```java
+@Autowired
+private AddressParsingService parsingService; // AddressTokenizer or AddressEnrichmentService
+
+ParsedAddress result = parsingService.parse("350 Fifth Avenue, New York, NY 10118");
+result.city();          // "NEW YORK" — same accessor, same value, in both tiers
+result.diagnostics();   // null in Core; populated by Pro's gazetteer enrichment
+```
+
+Adding the Pro dependency and letting Spring wire `AddressEnrichmentService` in place of
+`AddressTokenizer` is the entire upgrade — no code change, no return-type change. Pro's
+`ParsedAddress` additionally corrects `city()`/`country()`/`postalCode()` via gazetteer
+and postal-code lookups, and populates `diagnostics()` with weighted confidence, ISO
+20022 structure, field-level confidence, corrections, and trace logs.
 
 ---
 
@@ -40,8 +64,9 @@ Application code that calls `AddressTokenizer.parse()` continues to work unchang
 
 | Component | Description |
 |---|---|
+| `AddressParsingService` | Public entry point interface — `parse()`/`parseLines()`; implemented by `AddressTokenizer` (Core) and `AddressEnrichmentService` (Pro) |
 | `AddressParser` SPI | Interface every parser implements; extend it to add your own country |
-| `AddressTokenizer` | Dispatcher: detects country, calls the right parser, rates confidence |
+| `AddressTokenizer` | Dispatcher: detects country, calls the right parser, rates confidence, maps tokens to named fields |
 | `CountryDetector` | Regex + postal-code cascade; detects 10+ countries from a flat string |
 | `UsAddressParser` | US USPS format — ZIP, state, unit, floor, street type |
 | `UkAddressParser` | UK Royal Mail format — postcode at end, county, district |
@@ -52,7 +77,7 @@ Application code that calls `AddressTokenizer.parse()` continues to work unchang
 | `QuebecFrenchDetector` | Heuristic detection of Quebec French address patterns |
 | `QuebecFrenchParser` | Quebec French address tokeniser (Rue, Boul, Ave in French) |
 | `GenericAddressParser` | Positional fallback for unsupported countries (low confidence) |
-| `model.*` | `AddressToken`, `TokenType`, `ParsedAddress`, `ParseTrace` |
+| `model.*` | `AddressToken`, `TokenType`, `ParsedAddress`, `ParseDiagnostics` (Pro-populated, nullable in Core) |
 | `utils.NormalizationUtil` | SWIFT Basic Latin charset conversion (ä→ae, é→e, ñ→n, …) |
 | `dict.StreetTypeDictionary` | Curated street-type vocabulary for US/EN/DE/FR |
 
@@ -71,7 +96,7 @@ Application code that calls `AddressTokenizer.parse()` continues to work unchang
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -81,9 +106,12 @@ No extra configuration needed — Spring Boot picks up `AddressTokenizerAutoConf
 
 ### Spring Boot (recommended)
 
+Inject `AddressParsingService` rather than `AddressTokenizer` directly if you want the
+code to keep working unchanged after upgrading to Pro (see "Upgrading from Core to Pro").
+
 ```java
 @Autowired
-private AddressTokenizer tokenizer;
+private AddressTokenizer tokenizer; // or AddressParsingService for a Pro-portable call site
 
 ParsedAddress result = tokenizer.parse("350 5th Ave, New York, NY 10118");
 
@@ -159,7 +187,9 @@ AddressTokenizer tokenizer = new AddressTokenizer(
 
 `ParsedAddress` also exposes:
 - `parseConfidence()` — basic parse confidence in `[0.0, 1.0]` based on token coverage
-- Named field accessors: `city()`, `streetName()`, `buildingName()`, `unit()`, `floor()`, `state()`, `postalCode()`, `country()`
+- Named fields, populated by `AddressTokenizer` from the token list: `streetName()`, `buildingName()`, `unit()`, `floor()`, `city()`, `district()`, `state()`, `postalCode()`
+- `country()` — resolved country, derived from tokens with a fallback to `countryCode()`
+- `diagnostics()` — `null` in Core; populated by Pro with weighted confidence, ISO 20022 structure, field confidence, corrections, and trace logs
 - `toMap()` — flat `Map<String, String>` keyed by `TokenType.name()`
 
 ## Extending with a custom parser
