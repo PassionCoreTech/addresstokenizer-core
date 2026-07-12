@@ -4,47 +4,19 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/io.passioncore/addresstokenizer-core)](https://central.sonatype.com/artifact/io.passioncore/addresstokenizer-core)
 
-**Free, open-source address tokeniser** for postal address parsing in Spring Boot and plain Java applications.
+**Address Tokenizer** structures postal addresses for SWIFT's mandatory ISO 20022
+address requirement (14 Nov 2026) — without installing a Python ML runtime.
 
-Parses free-text postal addresses from 7 countries/locales into structured tokens — no database,
-no REST layer, no third-party data subscriptions. SWIFT Basic Latin charset normalisation included
-for [pacs.008 CBPR+](https://www.swift.com/standards/iso-20022/cbpr-plus) field formatting.
-
-## API Stability
-
-This library is at **v0.2.0** — early release.
-
-The parsing engine is production-quality for the supported countries.
-v0.2.0 lands the unified API refactor: Core and Pro now share the
-`AddressParsingService` interface and a single `ParsedAddress` return type
-(a **breaking change** from v0.1.0 — see CHANGELOG). The shape may still
-evolve before v1.0.
-
-For production deployments or enterprise licensing contact **dev@passioncore.io**.
-
-## Core vs Pro
-
-| Feature | Core (Apache-2.0) | Pro (Commercial) |
-|---|---|---|
-| Address tokenisation (US, UK, DE, FR, AU, CA, Quebec) | ✓ | ✓ |
-| `parse(String)` / `parseLines(List<String>)` | ✓ | ✓ |
-| Named field accessors (`city()`, `streetName()`, `postalCode()`, …) | ✓ | ✓ |
-| Basic parse confidence (`parseConfidence`) | ✓ | ✓ |
-| More country parsers (HK, SG, JP, BR) | — | ✓ |
-| Gazetteer enrichment (IATA, GeoNames, OurAirports) | — | ✓ |
-| Postal code → city lookup | — | ✓ |
-| Weighted aggregate confidence | — | ✓ |
-| Field-level confidence | — | ✓ |
-| Trace logs | — | ✓ |
-| Corrections map | — | ✓ |
-| ISO 20022 / pacs.008 structured output | — | ✓ |
-
-Upgrading from Core to Pro requires only adding the Pro dependency.
-Application code that calls `AddressTokenizer.parse()` continues to work unchanged.
-
----
+SWIFT's own compliance tool is a Python/PyTorch model. If your payments stack is
+Java, that means a new runtime, a new security review, and a new deployment path
+just to hit a compliance deadline. Address Tokenizer is a Java-native, deterministic
+library — drop it into your existing stack, and get a rule-based, fully auditable
+trace for every Town/Country decision it makes, not a confidence score from a black
+box.
 
 ## Installation
+
+Maven:
 
 ```xml
 <dependency>
@@ -54,7 +26,75 @@ Application code that calls `AddressTokenizer.parse()` continues to work unchang
 </dependency>
 ```
 
+Gradle:
+
+```groovy
+implementation 'io.passioncore:addresstokenizer-core:0.2.0'
+```
+
 No extra configuration needed — Spring Boot picks up `AddressTokenizerAutoConfiguration` automatically via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
+
+## Before / after
+
+One free-text address in, structured ISO 20022 address elements out:
+
+```text
+350 FIFTH AVENUE, NEW YORK, NY 10118
+```
+
+```java
+ParsedAddress r = tokenizer.parse("350 FIFTH AVENUE, NEW YORK, NY 10118");
+```
+
+Core extracts every pacs.008 address element as a named, typed field:
+
+```json
+{
+  "country": "US",
+  "tokens": [
+    { "type": "POSTAL_CODE",  "value": "10118" },
+    { "type": "STATE_CODE",   "value": "NY" },
+    { "type": "CITY",         "value": "NEW YORK" },
+    { "type": "HOUSE_NO",     "value": "350" },
+    { "type": "STREET_NAME",  "value": "FIFTH" },
+    { "type": "STREET_TYPE",  "value": "AVENUE" },
+    { "type": "COUNTRY_CODE", "value": "US" }
+  ]
+}
+```
+
+The Pro tier assembles and validates the same result as a ready-to-embed pacs.008
+`<PstlAdr>` block:
+
+```xml
+<PstlAdr>
+    <BldgNb>350</BldgNb>
+    <StrtNm>FIFTH AVENUE</StrtNm>
+    <PstCd>10118</PstCd>
+    <TwnNm>NEW YORK</TwnNm>
+    <CtrySubDvsn>US-NY</CtrySubDvsn>
+    <Ctry>US</Ctry>
+</PstlAdr>
+```
+
+Both outputs above are real library output for that input (JSON pretty-printed).
+
+## Why deterministic
+
+Every parse decision comes from an explicit rule — a postal-code regex, a street-type
+dictionary hit, a country-detection cascade — never from model weights. The same input
+always produces the same output, and each Town/Country decision traces back to the rule
+that made it, so a compliance reviewer signs off by reading rules, not by auditing
+training data. A wrong parse is a reproducible, fixable bug rather than a model
+regression you can only retrain against. And operationally it stays a single JAR on
+your existing classpath: no GPU, no model files, no second runtime.
+
+## What's in Core
+
+Parses free-text postal addresses from 7 countries/locales (US, UK, DE, FR, AU, CA,
+Quebec French) into structured tokens — no database, no REST layer, no third-party
+data subscriptions. SWIFT Basic Latin charset normalisation is included for
+[pacs.008 CBPR+](https://www.swift.com/standards/iso-20022/cbpr-plus) field formatting.
 
 ## Usage
 
@@ -197,6 +237,38 @@ mvn install -DskipTests
 | `addresstokenizer-core` | The library JAR — add this as a dependency |
 | `addresstokenizer-core-sample` | Runnable Spring Boot app showing usage via REST endpoint |
 
+## API stability
+
+This library is at **v0.2.0** — early release.
+
+The parsing engine is production-quality for the supported countries.
+v0.2.0 lands the unified API refactor: Core and Pro now share the
+`AddressParsingService` interface and a single `ParsedAddress` return type
+(a **breaking change** from v0.1.0 — see CHANGELOG). The shape may still
+evolve before v1.0.
+
+For production deployments or enterprise licensing contact **dev@passioncore.io**.
+
+## Core vs Pro
+
+| Feature | Core (Apache-2.0) | Pro (Commercial) |
+|---|---|---|
+| Address tokenisation (US, UK, DE, FR, AU, CA, Quebec) | ✓ | ✓ |
+| `parse(String)` / `parseLines(List<String>)` | ✓ | ✓ |
+| Named field accessors (`city()`, `streetName()`, `postalCode()`, …) | ✓ | ✓ |
+| Basic parse confidence (`parseConfidence`) | ✓ | ✓ |
+| More country parsers (HK, SG, JP, BR) | — | ✓ |
+| Gazetteer enrichment (IATA, GeoNames, OurAirports) | — | ✓ |
+| Postal code → city lookup | — | ✓ |
+| Weighted aggregate confidence | — | ✓ |
+| Field-level confidence | — | ✓ |
+| Trace logs | — | ✓ |
+| Corrections map | — | ✓ |
+| ISO 20022 / pacs.008 structured output | — | ✓ |
+
+Upgrading from Core to Pro requires only adding the Pro dependency.
+Application code that calls `AddressTokenizer.parse()` continues to work unchanged.
+
 ## License
 
 Address Tokenizer Core is licensed under the **Apache License, Version 2.0**.
@@ -216,3 +288,10 @@ For commercial Pro licensing (gazetteer enrichment, ISO 20022 output, SLA suppor
 ```text
 dev@passioncore.io
 ```
+
+## Disclaimer
+
+This library is not affiliated with, endorsed by, or certified by S.W.I.F.T. SCRL ("SWIFT").
+"SWIFT", "CBPR+", and "pacs.008" are trademarks or service marks of S.W.I.F.T. SCRL or its affiliates.
+This library structures postal address data to align with the ISO 20022 pacs.008 CBPR+ field-format requirements.
+It is not a substitute for official SWIFT-certified validation tooling or network connectivity.
