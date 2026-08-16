@@ -98,6 +98,39 @@ class CoreOnlyWiringTest {
     }
 
     @Test
+    void parse_frAddress_namedAccessors() {
+        ParsedAddress p = tokenizer.parse("12 Rue de Rivoli, 75001 Paris, France");
+        assertThat(p.countryCode()).isEqualTo("FR");
+        assertThat(p.streetName()).isNotBlank();
+        assertThat(p.buildingName()).isEqualTo("12");
+        assertThat(p.city()).isEqualTo("PARIS");
+        assertThat(p.postalCode()).isEqualTo("75001");
+        assertThat(p.parseConfidence()).isGreaterThan(0.80);
+    }
+
+    @Test
+    void parse_auAddress_namedAccessors() {
+        ParsedAddress p = tokenizer.parse("1 Martin Place, Sydney NSW 2000, Australia");
+        assertThat(p.countryCode()).isEqualTo("AU");
+        assertThat(p.streetName()).isNotBlank();
+        assertThat(p.buildingName()).isEqualTo("1");
+        assertThat(p.city()).isEqualTo("SYDNEY");
+        assertThat(p.postalCode()).isEqualTo("2000");
+        assertThat(p.parseConfidence()).isGreaterThan(0.80);
+    }
+
+    @Test
+    void parse_caAddress_namedAccessors() {
+        ParsedAddress p = tokenizer.parse("100 Queen Street West, Toronto, ON M5H 2N2, Canada");
+        assertThat(p.countryCode()).isEqualTo("CA");
+        assertThat(p.streetName()).isNotBlank();
+        assertThat(p.buildingName()).isEqualTo("100");
+        assertThat(p.city()).isEqualTo("TORONTO");
+        assertThat(p.postalCode()).isEqualTo("M5H 2N2");
+        assertThat(p.parseConfidence()).isGreaterThan(0.80);
+    }
+
+    @Test
     void parseLines_multiLine_usAddress() {
         ParsedAddress p = tokenizer.parseLines(List.of(
             "350 Fifth Avenue",

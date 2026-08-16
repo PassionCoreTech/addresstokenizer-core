@@ -31,6 +31,14 @@ import io.passioncore.addresstokenizer.model.ParsedAddress;
  * with gazetteer-backed enrichment; Core leaves it {@code null}. Callers can
  * upgrade from Core to Pro by swapping the injected bean, with no code change
  * at the call site.</p>
+ *
+ * <p>Results may be incomplete or incorrect when input data is ambiguous,
+ * incomplete, outdated, or malformed. Callers are responsible for validating
+ * outputs, confidence thresholds, and review decisions for their use case.</p>
+ *
+ * <p>This software is not certified, validated, endorsed, or approved by Swift;
+ * ISO 20022 and CBPR+ references do not guarantee message acceptance or
+ * regulatory compliance. See {@code DISCLAIMER.md}.</p>
  */
 public interface AddressParsingService {
 
