@@ -61,7 +61,7 @@ public class CaAddressParser implements AddressParser {
             "NUNAVUT|ONTARIO|PRINCE EDWARD ISLAND|QUEBEC|SASKATCHEWAN|YUKON)\\b");
 
     private static final Pattern STREET_LINE_UNIT =
-        Pattern.compile("(?i)\\b(Unit|Level|Lvl|Suite|Ste|Shop|Apt|Flat)\\s+(\\d+[A-Z]?)\\b");
+        Pattern.compile("(?i)\\b(Unit|Level|Lvl|Suite|Ste|Shop|Apt|Flat)\\s+#?\\s*(\\d+[A-Z]?)\\b");
     private static final Pattern UNIT_CIVIC =
         Pattern.compile("^(#?\\d+[A-Z]?)\\s*-\\s*(\\d+[A-Z]?)\\s+");
     private static final Pattern HOUSE_NO =
