@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor versions may contain breaking changes, as noted in the README's
 API Stability section).
 
+## [0.2.1] - 2026-08-16
+
+### Fixed
+
+- Canadian address parsing now supports unit values written as `Suite #123` in
+  addition to `Suite 123`.
+
+### Added
+
+- Core-only tests covering named field accessors for FR, AU, and CA addresses.
+
+### Changed
+
+- Clarified Core parsing limitations and ISO 20022/CBPR+ disclaimer text in the
+  public API documentation.
+
 ## [0.2.0] — 2026-07-03
 
 ### Changed — **breaking**
@@ -37,5 +53,6 @@ API Stability section).
   country parsers for US, UK, DE, FR, AU, CA (including Quebec French),
   Spring Boot auto-configuration, `addresstokenizer-core-sample` app.
 
+[0.2.1]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.2.1
 [0.2.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.2.0
 [0.1.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.1.0
