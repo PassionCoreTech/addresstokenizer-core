@@ -19,9 +19,11 @@
 package io.passioncore.addresstokenizer.detector;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -46,6 +48,10 @@ import io.passioncore.addresstokenizer.parser.UsAddressParser;
 public class CountryDetector implements CountryDetectorInterface {
 
     private static final Pattern IN_POSTAL = Pattern.compile("\\b\\d{6}\\b");
+
+    // Used by detectDeclaredCountryCode: matches only when the trimmed last comma-segment
+    // is exactly two letters -- nothing else (no digits, no extra words).
+    private static final Pattern BARE_COUNTRY_CODE = Pattern.compile("^[A-Za-z]{2}$");
 
     /**
      * Unambiguous US full state names used as a last-resort US signal when no postal
@@ -125,7 +131,8 @@ public class CountryDetector implements CountryDetectorInterface {
         Map.entry("EGYPT",             "EG"),
         Map.entry("NIGERIA",           "NG"),
         Map.entry("KENYA",             "KE"),
-        Map.entry("IRELAND",           "IE")
+        Map.entry("IRELAND",           "IE"),
+        Map.entry("HONG KONG",         "HK")
     );
 
     private final List<CountryPattern> patterns;
@@ -152,16 +159,25 @@ public class CountryDetector implements CountryDetectorInterface {
         if (address == null || address.isBlank()) return "UNKNOWN";
         String upper = address.toUpperCase();
 
-        if (upper.contains("SINGAPORE") || upper.matches(".*\\bS\\d{6}\\b.*"))
+        // Explicit country names — longest match wins so "UNITED KINGDOM" beats "CHINA"
+        // when both appear in the same address string. Map iteration order is not
+        // guaranteed, so we must scan all entries and pick the longest key that matches.
+        Map.Entry<String, String> bestName = COUNTRY_NAME_HINT.entrySet().stream()
+            .filter(e -> upper.contains(e.getKey()))
+            .max((a, b) -> Integer.compare(a.getKey().length(), b.getKey().length()))
+            .orElse(null);
+        if (bestName != null) return bestName.getValue();
+
+        // SG postal patten 
+        if (upper.matches(".*\\bS\\d{6}\\b.*"))
             return "SG";
 
-        if (upper.contains("HONG KONG") || upper.contains("KOWLOON")
+        if (upper.contains("KOWLOON")
                 || upper.contains("HKG") || upper.contains("NEW TERRITORIES")
                 || upper.contains("HKSAR")
                 || upper.contains("HK CN") || upper.contains("CN HK")
                 || address.matches(".*[乂新香龍港磡].*"))
             return "HK";
-
         if (CaAddressParser.POSTAL_FULL.matcher(address).find()
                 || (CaAddressParser.PROVINCE.matcher(address).find()
                     && address.matches(".*\\b[A-Z]\\d[A-Z]\\b.*"))) {
@@ -179,14 +195,7 @@ public class CountryDetector implements CountryDetectorInterface {
             }
         }
 
-        // Explicit country names — longest match wins so "UNITED KINGDOM" beats "CHINA"
-        // when both appear in the same address string. Map iteration order is not
-        // guaranteed, so we must scan all entries and pick the longest key that matches.
-        Map.Entry<String, String> bestName = COUNTRY_NAME_HINT.entrySet().stream()
-            .filter(e -> upper.contains(e.getKey()))
-            .max((a, b) -> Integer.compare(a.getKey().length(), b.getKey().length()))
-            .orElse(null);
-        if (bestName != null) return bestName.getValue();
+
 
         for (CountryPattern cp : patterns) {
             if (cp.pattern().matcher(address).find()) {
@@ -200,6 +209,50 @@ public class CountryDetector implements CountryDetectorInterface {
 
         // City-name fallback: scan address for a known city from cities500 dataset
         return cityLookup != null ? cityLookup.lookupInAddress(address).orElse("UNKNOWN") : "UNKNOWN";
+    }
+
+    /**
+     * Secondary, positional signal — checks whether a recognized country name from
+     * {@link #COUNTRY_NAME_HINT} appears within the trailing {@code tailTokenWindow}
+     * tokens of the address. Reuses the same longest-match-wins vocabulary as
+     * {@link #detect}'s explicit-name check, restricted to the tail so it can be used
+     * to corroborate/conflict-check the primary {@link #detect} result rather than
+     * duplicate it. Bare 2-letter ISO codes are intentionally not matched here — too
+     * easily confused with a trailing state/province abbreviation to be a safe signal.
+     */
+    @Override
+    public Optional<String> detectInTail(String address, int tailTokenWindow) {
+        if (address == null || address.isBlank() || tailTokenWindow <= 0) return Optional.empty();
+
+        String[] rawTokens = address.trim().split("[\\s,]+");
+        int from = Math.max(0, rawTokens.length - tailTokenWindow);
+        String tail = String.join(" ", Arrays.copyOfRange(rawTokens, from, rawTokens.length)).toUpperCase();
+
+        return COUNTRY_NAME_HINT.entrySet().stream()
+            .filter(e -> tail.contains(e.getKey()))
+            .max((a, b) -> Integer.compare(a.getKey().length(), b.getKey().length()))
+            .map(Map.Entry::getValue);
+    }
+
+    /**
+     * Positional signal for an explicit country declaration: matches only when the
+     * address's last comma-delimited segment is, once trimmed, exactly a bare 2-letter
+     * code and nothing else. Standard mailing-address format puts state and postal code
+     * together in one segment ("NY 10118"), so that shape never qualifies -- only a code
+     * standing alone in its own final segment does. Format-only check: does not validate
+     * the code against a canonical ISO-3166 list.
+     */
+    @Override
+    public Optional<String> detectDeclaredCountryCode(String address) {
+        if (address == null || address.isBlank()) return Optional.empty();
+
+        String[] segments = address.split(",", -1);
+        if (segments.length < 2) return Optional.empty();
+
+        String lastSegment = segments[segments.length - 1].trim();
+        return BARE_COUNTRY_CODE.matcher(lastSegment).matches()
+            ? Optional.of(lastSegment.toUpperCase())
+            : Optional.empty();
     }
 
     private record CountryPattern(String country, Pattern pattern) {}

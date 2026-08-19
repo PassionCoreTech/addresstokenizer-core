@@ -18,6 +18,8 @@
 
 package io.passioncore.addresstokenizer.detector;
 
+import java.util.Optional;
+
 /**
  * Contract for country detection from a free-text address string.
  *
@@ -35,4 +37,30 @@ public interface CountryDetectorInterface {
      *         or {@code "UNKNOWN"} if detection fails
      */
     String detect(String address);
+
+    /**
+     * Secondary, positional signal: checks whether a recognized country name appears
+     * within the trailing {@code tailTokenWindow} tokens of the address. Used only to
+     * corroborate/conflict-check the primary {@link #detect} result — never a
+     * replacement for it.
+     *
+     * @param address raw address string
+     * @param tailTokenWindow number of trailing whitespace/comma-delimited tokens to scan
+     * @return ISO 3166-1 alpha-2 code of the recognized country name found in the tail,
+     *         or empty if none matched
+     */
+    Optional<String> detectInTail(String address, int tailTokenWindow);
+
+    /**
+     * Returns the bare 2-letter code (uppercased) when the address's last comma-delimited
+     * segment consists solely of that code — a strong positional signal of an explicit
+     * country declaration (e.g. "..., CA"), distinct from {@link #detectInTail} which scans
+     * a fuzzy trailing window for full country names only. Returns empty when the last
+     * segment has any other content (e.g. "NY 10118" — state+ZIP share one segment in
+     * standard mailing-address format and never qualify), is missing, or is blank.
+     *
+     * @param address raw address string (original, not tokenizer-normalized)
+     * @return bare uppercased 2-letter code, or empty if the last segment isn't a lone code
+     */
+    Optional<String> detectDeclaredCountryCode(String address);
 }

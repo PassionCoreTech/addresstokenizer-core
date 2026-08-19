@@ -20,6 +20,7 @@ package io.passioncore.addresstokenizer.parser;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,6 +61,10 @@ public class AuAddressParser implements AddressParser {
             "Parade|Pde|Circuit|Cct|Boulevard|Blvd|Highway|Hwy|Grove|Gve|" +
             "Rise|Row|Walk|Loop|Link|Esplanade|Esp|Quay|Mall)\\b\\.?");
 
+    // Redundant self-references to this parser's own country -- not real city names.
+    // See docs/plans/029 for the bug class this guards against.
+    private static final Set<String> SELF_REFERENCE = Set.of("AU", "AUSTRALIA");
+
     @Override public String postalCodePattern() { return STATE_POSTCODE.pattern(); }
     @Override public String countryCode() { return "AU"; }
     @Override public int detectionPriority() { return 60; }
@@ -84,16 +89,19 @@ public class AuAddressParser implements AddressParser {
             remaining = addr.substring(0, spStart).trim().replaceAll("[,\\s]+$", "");
         }
 
-        String[] parts = remaining.split(",");
-        int len = parts.length;
+        List<String> partList = new ArrayList<>(List.of(remaining.split(",")));
+        while (partList.size() >= 2 && SELF_REFERENCE.contains(partList.get(partList.size() - 1).trim().toUpperCase())) {
+            partList.remove(partList.size() - 1);
+        }
+        int len = partList.size();
         String streetLine = remaining;
         if (len >= 2) {
-            String city = parts[len - 1].trim();
+            String city = partList.get(len - 1).trim();
             tokens.add(token(TokenType.CITY, city));
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < len - 1; i++) {
                 if (i > 0) sb.append(", ");
-                sb.append(parts[i].trim());
+                sb.append(partList.get(i).trim());
             }
             streetLine = sb.toString();
         }

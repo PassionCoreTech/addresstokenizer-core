@@ -185,7 +185,11 @@ public class CaAddressParser implements AddressParser {
                     Matcher soloHash = UNIT_CIVIC_SOLO.matcher(leftover);
                     if (soloHash.matches()) {
                         tokens.add(token(TokenType.UNIT, soloHash.group(1)));
-                    } else if (!"CANADA".equals(leftover)) {
+                    } else if (!"CANADA".equals(leftover) && !"CA".equals(leftover)) {
+                        // "CA" is a redundant self-reference to this parser's own country
+                        // (not a real Canadian province code -- those are AB/BC/ON/etc,
+                        // see PROVINCE), so it survives Step 2's province strip and would
+                        // otherwise clobber a real city segment already captured above.
                         city = leftover;
                     }
                 }

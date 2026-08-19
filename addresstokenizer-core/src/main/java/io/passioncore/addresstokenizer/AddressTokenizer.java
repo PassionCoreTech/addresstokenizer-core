@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -140,7 +141,7 @@ public class AddressTokenizer implements AddressParsingService {
             parsed = healer.enrichCity(parsed, finalCountry);
         }
 
-        double conf = computeParseConfidence(parsed.tokens(), parsed.countryCode());
+        double conf = computeParseConfidence(parsed.tokens(), parsed.countryCode(), rawJoined);
 
         if (poBoxToken == null) {
             return tokensToFields(parsed.raw(), parsed.countryCode(), conf, parsed.tokens());
@@ -226,7 +227,7 @@ public class AddressTokenizer implements AddressParsingService {
         return s != null && s.length() > max ? s.substring(0, max) : s;
     }
 
-    private static double computeParseConfidence(List<AddressToken> tokens, String countryCode) {
+    private double computeParseConfidence(List<AddressToken> tokens, String countryCode, String rawAddress) {
         long mandatory = tokens.stream()
                 .filter(t -> MANDATORY_TYPES.contains(t.type())).count();
         double base = 0.50 + (mandatory / 3.0) * 0.40;
@@ -241,7 +242,14 @@ public class AddressTokenizer implements AddressParsingService {
 
         double countryPenalty = "UNKNOWN".equals(countryCode) ? 0.10 : 0.0;
 
-        double raw = base + bonus - unknownPenalty - countryPenalty;
+        // Declared-vs-resolved country conflict: the address explicitly ends in a bare
+        // 2-letter code (its own comma segment) that disagrees with the resolved
+        // countryCode -- a positively wrong signal, not just missing info.
+        Optional<String> declaredCountry = detector.detectDeclaredCountryCode(rawAddress);
+        double declaredConflictPenalty = declaredCountry.isPresent()
+                && !declaredCountry.get().equalsIgnoreCase(countryCode) ? 0.10 : 0.0;
+
+        double raw = base + bonus - unknownPenalty - countryPenalty - declaredConflictPenalty;
         return Math.round(Math.max(0.0, Math.min(1.0, raw)) * 100.0) / 100.0;
     }
 

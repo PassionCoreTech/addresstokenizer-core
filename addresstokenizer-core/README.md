@@ -6,7 +6,7 @@ Provides the `AddressParser` SPI, shared model types, SWIFT ASCII normalization,
 
 ## API Stability
 
-This library is at **v0.2.0** — early release.
+This library is at **v0.3.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
 `ParsedAddress` now carries named fields (`streetName()`, `city()`, …) directly as
@@ -96,7 +96,7 @@ and postal-code lookups, and populates `diagnostics()` with weighted confidence,
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 

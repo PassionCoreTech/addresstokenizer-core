@@ -21,6 +21,7 @@ package io.passioncore.addresstokenizer.parser;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +63,10 @@ public class UsAddressParser implements AddressParser {
             "(?i)\\b(?:Floor|Flr|FL|Level|Lvl)\\s*#?\\s*(\\d+[A-Z]?\\w*)" +
             "|\\b(\\d+(?:st|nd|rd|th)?)\\s+(?:Floor|Flr|Fl)\\b");
 
+    // Redundant self-references to this parser's own country -- not real city names.
+    // See docs/plans/029 for the bug class this guards against.
+    private static final Set<String> SELF_REFERENCE = Set.of("US", "USA", "UNITED STATES");
+
     @Override public String postalCodePattern() { return ZIP.pattern(); }
     @Override public String countryCode() { return "US"; }
     @Override public int detectionPriority() { return 50; }
@@ -92,11 +97,14 @@ public class UsAddressParser implements AddressParser {
             remaining = remaining.substring(0, stateStart).trim().replaceAll("[,\\s]+$", "");
         }
 
-        String[] lines = remaining.split(",");
-        if (lines.length >= 2) {
-            String cityLine = lines[lines.length - 1].trim();
+        List<String> lines = new ArrayList<>(Arrays.asList(remaining.split(",")));
+        while (lines.size() >= 2 && SELF_REFERENCE.contains(lines.get(lines.size() - 1).trim().toUpperCase())) {
+            lines.remove(lines.size() - 1);
+        }
+        if (lines.size() >= 2) {
+            String cityLine = lines.get(lines.size() - 1).trim();
             tokens.add(token(TokenType.CITY, cityLine.toUpperCase()));
-            remaining = String.join(",", Arrays.copyOf(lines, lines.length - 1)).trim();
+            remaining = String.join(",", lines.subList(0, lines.size() - 1)).trim();
         }
 
         Matcher unitMatcher = UNIT.matcher(remaining);

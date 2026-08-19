@@ -1,11 +1,4 @@
-﻿/*
- * Copyright (c) 2026 PassionCore Technologies Inc. (dev@passioncore.io)
- *
- * This file is part of Address Tokenizer Core Sample.
- *
- * SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Commercial
- */
-# addresstokenizer-core-sample
+﻿# addresstokenizer-core-sample
 
 A runnable Spring Boot application that shows how to integrate **addresstokenizer-core** (the free tier) into your own project.
 
@@ -197,11 +190,7 @@ Two test classes are included:
 
 ## License
 
-Address Tokenizer Core Sample is sample code for Address Tokenizer Core.
+Address Tokenizer Core Sample is sample code for Address Tokenizer Core, licensed under the Apache License, Version 2.0. See [LICENSE.md](LICENSE.md) for the full text.
 
-Unless a separate written commercial license applies, this sample project is licensed under the GNU Affero General Public License v3.0 or later.
-
-SPDX expression:
-
-AGPL-3.0-or-later OR LicenseRef-Commercial
+SPDX-License-Identifier: Apache-2.0
 
