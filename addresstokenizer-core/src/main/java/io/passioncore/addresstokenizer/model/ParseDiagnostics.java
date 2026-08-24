@@ -20,6 +20,7 @@ package io.passioncore.addresstokenizer.model;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 
@@ -36,20 +37,15 @@ import lombok.Builder;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ParseDiagnostics(
-    /** Weighted aggregate confidence (0.0–1.0) — gazetteer validation plus penalties. */
-    double confidence,
+    /** Confidence breakdown (parse / gazetteer / final) — {@link ConfidenceBreakdown#final_()}
+     *  drives {@link #needsReview()}. */
+    ConfidenceBreakdown confidence,
 
-    /** {@code true} when {@link #confidence()} is below the review threshold. */
+    /** {@code true} when {@link ConfidenceBreakdown#final_()} is below the review threshold. */
     boolean needsReview,
 
     /** ISO 3166-1 alpha-2 validation status of the resolved country code. */
     CountryCodeStatus countryCodeStatus,
-
-    /** ISO 3166-2 normalised state/province, e.g. {@code "US-NY"} (opt-in, postal-code enrichment). */
-    String subDivision,
-
-    /** Community / suburb resolved from the postal-code dataset (opt-in). */
-    String townLocation,
 
     /** Which pacs.008 XML structure this address produces. */
     AddressIso20022Result.AddressStructureType inputStructure,
@@ -60,8 +56,11 @@ public record ParseDiagnostics(
     /** {@code true} when a PO Box is present without a civic address (CA FINTRAC rule). */
     boolean fintracPoBoxInvalid,
 
-    /** Per-field confidence scores (0.0–1.0), keyed by output field name; absent fields omitted. */
-    Map<String, Double> fieldConfidences,
+    /** Per-field confidence, keyed by Java field name; absent fields omitted. Not serialized
+     *  directly here — surfaced at {@link ParsedAddress#general()}'s {@code fieldConfidences}
+     *  instead, since it's plain-name data alongside the rest of the {@code general} view. */
+    @JsonIgnore
+    Map<String, FieldConfidenceEntry> fieldConfidences,
 
     /** Structured field corrections, present only for fields that were modified during enrichment. */
     Map<String, FieldCorrection> corrections,
@@ -69,6 +68,8 @@ public record ParseDiagnostics(
     /** One entry per parser decision, explaining why each field was assigned its value. */
     List<TraceLog> traceLogs,
 
-    /** Full ISO 20022 / pacs.008 structured output. */
+    /** Full ISO 20022 / pacs.008 structured output. Not serialized directly here — promoted
+     *  to a top-level {@link ParsedAddress#iso20022Result()} JSON section instead. */
+    @JsonIgnore
     AddressIso20022Result iso20022Result
 ) {}

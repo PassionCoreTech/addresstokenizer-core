@@ -111,11 +111,13 @@ public record AddressIso20022Result(
     // ── Per-field confidence ──────────────────────────────────────────────────────────────────────
 
     /**
-     * Per-field confidence using ISO 20022 XML tag names as keys and numeric
-     * 0.0–1.0 scores as values (e.g. {@code {"StrtNm": 0.88, "TwnNm": 0.97}}).
-     * Only fields that were parsed or enriched are present.
+     * Per-field confidence using ISO 20022 XML tag names as keys
+     * (e.g. {@code {"StrtNm": {"confidence": 0.88}, "TwnNm": {"confidence": 0.97}}}).
+     * Only fields that were parsed or enriched are present. Each entry also carries an
+     * optional {@code penalty} when a whole-address penalty was triggered by that
+     * field's correction.
      */
-    Map<String, Double> fieldConfidence
+    Map<String, FieldConfidenceEntry> fieldConfidence
 
 ) {
 

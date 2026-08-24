@@ -22,14 +22,14 @@ Maven:
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
 Gradle:
 
 ```groovy
-implementation 'io.passioncore:addresstokenizer-core:0.3.0'
+implementation 'io.passioncore:addresstokenizer-core:0.4.0'
 ```
 
 No extra configuration needed — Spring Boot picks up `AddressTokenizerAutoConfiguration` automatically via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
@@ -239,13 +239,16 @@ mvn install -DskipTests
 
 ## API stability
 
-This library is at **v0.3.0** — early release.
+This library is at **v0.4.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
-v0.2.0 lands the unified API refactor: Core and Pro now share the
+v0.4.0 restructures `ParsedAddress`'s JSON output (flat fields, `tokens`, and
+`country` moved under a new `general` section; `iso20022Result` promoted to
+top level) and removes `TokenType.CORRECTED_CITY` in favor of tokens carrying
+corrected values in place (a **breaking change** — see CHANGELOG). v0.2.0
+landed the unified API refactor: Core and Pro now share the
 `AddressParsingService` interface and a single `ParsedAddress` return type
-(a **breaking change** from v0.1.0 — see CHANGELOG). The shape may still
-evolve before v1.0.
+(also breaking, from v0.1.0). The shape may still evolve before v1.0.
 
 For production deployments or enterprise licensing contact **dev@passioncore.io**.
 

@@ -18,14 +18,13 @@
 
 package io.passioncore.sample;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,14 +33,19 @@ import io.passioncore.addresstokenizer.AddressTokenizer;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 
-import lombok.RequiredArgsConstructor;
-
 @Tag(name = "Address Parsing", description = "Parse free-text postal addresses into structured tokens")
 @RestController
-@RequiredArgsConstructor
 public class AddressParseController {
 
     private final AddressTokenizer tokenizer;
+    private final double confidenceThreshold;
+
+    public AddressParseController(
+            AddressTokenizer tokenizer,
+            @Value("${address.tokenizer.confidence-threshold:0.75}") double confidenceThreshold) {
+        this.tokenizer = tokenizer;
+        this.confidenceThreshold = confidenceThreshold;
+    }
 
     /** Sample addresses for every country supported by the free tier. */
     private static final List<String> DEMO_ADDRESSES = List.of(
@@ -67,14 +71,24 @@ public class AddressParseController {
 
     @Operation(
         summary = "Parse a single address",
-        description = "Tokenises a free-text postal address and returns the detected tokens with confidence scores.",
+        description = """
+            Tokenises a free-text postal address into structured tokens.
+
+            Returns {raw, tokens, diagnostics}. `diagnostics` is always present, but on
+            this free tier only `confidence` (parse/gazetteer/final all equal — no
+            gazetteer tier to report) and `needsReview` are populated; fields that
+            require Pro-only enrichment (`countryCodeStatus`, `inputStructure`,
+            `cbprStructured`, `fintracPoBoxInvalid`, `corrections`, `traceLogs`,
+            `fieldConfidences`) are absent. See addresstokenizer-pro-sample's `/parse`
+            for the fully populated shape.
+            """,
         responses = {
             @ApiResponse(responseCode = "200", description = "Parsed successfully"),
             @ApiResponse(responseCode = "400", description = "Missing or blank address parameter")
         }
     )
     @GetMapping("/parse")
-    public Map<String, Object> parse(
+    public ParseResponse parse(
             @Parameter(description = "Free-text postal address to parse", example = "10 Downing Street, London SW1A 2AA")
             @RequestParam String address) {
         ParsedAddress result = tokenizer.parse(address);
@@ -87,31 +101,23 @@ public class AddressParseController {
         responses = @ApiResponse(responseCode = "200", description = "Demo results")
     )
     @GetMapping("/demo")
-    public List<Map<String, Object>> demo() {
+    public List<ParseResponse> demo() {
         return DEMO_ADDRESSES.stream()
                 .map(tokenizer::parse)
                 .map(this::toResponse)
                 .toList();
     }
 
-    // â”€â”€ Response builder â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Response builder ────────────────────────────────────────────────────
 
-    private Map<String, Object> toResponse(ParsedAddress parsed) {
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("raw",        parsed.raw());
-        out.put("country",    parsed.countryCode());
-        List<Map<String, Object>> tokens = parsed.tokens().stream()
-                .map(t -> tokenView(t))
-                .toList();
-        out.put("tokens", tokens);
-        return out;
-    }
+    /** Shared {@code /parse} response contract (docs/plans/032.03) — same shape Pro's
+     *  {@code addresstokenizer-pro-sample} returns from its own {@code /parse}. */
+    private record ParseResponse(String raw, List<AddressToken> tokens, ParserDiagnosticsView diagnostics) {}
 
-    private Map<String, Object> tokenView(AddressToken t) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("type",  t.type().name());
-        m.put("value", t.value());
-        return m;
+    private ParseResponse toResponse(ParsedAddress parsed) {
+        ParserDiagnosticsView diagnostics =
+                ParserDiagnosticsView.fromCore(parsed.parseConfidence(), confidenceThreshold);
+        return new ParseResponse(parsed.raw(), parsed.tokens(), diagnostics);
     }
 }
 

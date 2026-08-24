@@ -19,10 +19,12 @@
 package io.passioncore.addresstokenizer.model;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -44,26 +46,39 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ParsedAddress(
     String raw,
+
+    /** Raw pre-enrichment detected country code. Not serialized directly — see
+     *  {@link #general()}, which uses the resolved {@link #country()} value instead;
+     *  this raw value can diverge from it (e.g. cross-border correction). */
+    @JsonIgnore
     String countryCode,
+
     /** Basic parse confidence (0.0–1.0) computed from token coverage.
      *  Scores presence of STREET_NAME, CITY, POSTAL_CODE, and HOUSE_NO/BUILDING_NAME;
      *  applies penalties for UNKNOWN tokens and undetected country.
      *  Pro provides enhanced confidence with gazetteer validation — see
-     *  {@link ParseDiagnostics#confidence()}. */
+     *  {@link ParseDiagnostics#confidence()}. Not serialized directly — see
+     *  {@link #general()}. */
+    @JsonIgnore
     double parseConfidence,
 
     // Named fields — populated by AddressTokenizer.tokensToFields() after parsing.
     // Null until that mapping step runs (e.g. on a parser's raw, intermediate return value).
-    String streetName,
-    String buildingName,
-    String unit,
-    String floor,
-    String city,
-    String district,
-    String state,
-    String postalCode,
+    // Not serialized directly — see {@link #general()}.
+    @JsonIgnore String streetName,
+    @JsonIgnore String buildingName,
+    @JsonIgnore String unit,
+    @JsonIgnore String floor,
+    @JsonIgnore String city,
+    @JsonIgnore String district,
+    @JsonIgnore String state,
+    @JsonIgnore String postalCode,
 
-    /** Full token list — retained for diagnostics and {@link #get(TokenType)} lookups. */
+    /** Full token list — retained for internal use ({@link #get(TokenType)} lookups) and
+     *  for the shared {@code /parse} endpoint contract, which serializes it explicitly in
+     *  its own response type. Not serialized directly here — the enriched {@code /enrich}
+     *  view is {@code {raw, diagnostics, general, iso20022Result}}. */
+    @JsonIgnore
     List<AddressToken> tokens,
 
     /** Pro-tier enrichment diagnostics. {@code null} for Core-only parsing. */
@@ -100,11 +115,66 @@ public record ParsedAddress(
     }
 
     /** Resolved country — the {@code COUNTRY_CODE}/{@code COUNTRY} token if present,
-     *  otherwise falls back to the detected {@link #countryCode()}.
-     *  Annotated explicitly since it is a derived method, not a canonical record
-     *  component — without {@code @JsonProperty}, Jackson would omit it from JSON. */
-    @JsonProperty("country")
+     *  otherwise falls back to the detected {@link #countryCode()}. Not serialized
+     *  directly — see {@link #general()}, which exposes this value as
+     *  {@code general.countryCode}. */
+    @JsonIgnore
     public String country() {
         return get(TokenType.COUNTRY_CODE).or(() -> get(TokenType.COUNTRY)).orElse(countryCode());
+    }
+
+    /** Full country display name, derived from {@link #country()} — no gazetteer/DB
+     *  dependency, so this works identically in Core and Pro. Not serialized directly —
+     *  see {@link #general()}. */
+    @JsonIgnore
+    public String countryName() {
+        String code = country();
+        if (code == null || code.isBlank()) return null;
+        try {
+            return new Locale.Builder().setRegion(code).build().getDisplayCountry(Locale.ENGLISH);
+        } catch (java.util.IllformedLocaleException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Plain-name view of this address — the {@code "general"} section of the JSON
+     * output. Groups the flat fields (hidden from top-level JSON via {@code @JsonIgnore})
+     * together with the resolved country and, when {@link #diagnostics} is present,
+     * Pro's per-field confidence map.
+     */
+    @JsonProperty("general")
+    public GeneralView general() {
+        Map<String, FieldConfidenceEntry> fieldConfidences =
+                diagnostics != null ? diagnostics.fieldConfidences() : null;
+        String townLocation = diagnostics != null && diagnostics.iso20022Result() != null
+                ? diagnostics.iso20022Result().twnLctnNm() : null;
+
+        return GeneralView.builder()
+                .countryCode(country())
+                .countryName(countryName())
+                .streetName(streetName)
+                .buildingName(buildingName)
+                .unit(unit)
+                .floor(floor)
+                .city(city)
+                .district(district)
+                .townLocation(townLocation)
+                .state(state)
+                .postalCode(postalCode)
+                .parseConfidence(parseConfidence)
+                .fieldConfidences(fieldConfidences)
+                .build();
+    }
+
+    /**
+     * ISO 20022 / pacs.008 structured result — promoted here from
+     * {@link ParseDiagnostics#iso20022Result()} so it's a top-level JSON section rather
+     * than buried inside Pro-only diagnostics. {@code null} for Core-only parsing (same
+     * as {@link #diagnostics}).
+     */
+    @JsonProperty("iso20022Result")
+    public AddressIso20022Result iso20022Result() {
+        return diagnostics != null ? diagnostics.iso20022Result() : null;
     }
 }

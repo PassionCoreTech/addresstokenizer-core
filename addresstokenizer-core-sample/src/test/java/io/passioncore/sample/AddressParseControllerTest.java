@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -61,11 +62,12 @@ class AddressParseControllerTest {
             "'Level 3/80 Pacific Highway, North Sydney NSW 2060',               AU",
             "'120 Adelaide Street West, Suite 2500, Toronto, ON M5H 1T1',       CA",
         })
-        @DisplayName("detects country correctly")
+        @DisplayName("detects country correctly via COUNTRY_CODE token")
         void detectsCountry(String address, String expectedCountry) throws Exception {
             mockMvc.perform(get("/parse").param("address", address))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.country").value(expectedCountry));
+                    .andExpect(jsonPath("$.tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains(expectedCountry)));
         }
 
         @Test
@@ -74,8 +76,8 @@ class AddressParseControllerTest {
             mockMvc.perform(get("/parse").param("address", "10 Downing Street, London SW1A 2AA"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.raw").isNotEmpty())
-                    .andExpect(jsonPath("$.country").isNotEmpty())
-                    .andExpect(jsonPath("$.tokens").isArray());
+                    .andExpect(jsonPath("$.tokens").isArray())
+                    .andExpect(jsonPath("$.diagnostics").exists());
         }
 
         @Test
@@ -88,11 +90,13 @@ class AddressParseControllerTest {
         }
 
         @Test
-        @DisplayName("blank address returns UNKNOWN country")
+        @DisplayName("blank address returns no tokens and needsReview=true")
         void blankAddress() throws Exception {
             mockMvc.perform(get("/parse").param("address", "   "))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.country").value("UNKNOWN"));
+                    .andExpect(jsonPath("$.tokens").isArray())
+                    .andExpect(jsonPath("$.tokens.length()").value(0))
+                    .andExpect(jsonPath("$.diagnostics.needsReview").value(true));
         }
 
         @Test
@@ -101,7 +105,8 @@ class AddressParseControllerTest {
             mockMvc.perform(get("/parse")
                             .param("address", "1000 rue de la Gauchetiere Ouest, Montreal, QC H3B 4W5"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.country").value("CA"));
+                    .andExpect(jsonPath("$.tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains("CA")));
         }
 
         @Test
@@ -110,6 +115,42 @@ class AddressParseControllerTest {
             mockMvc.perform(get("/parse").param("address", "PO Box 9000, Victoria, BC V8W 9V6"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.tokens[?(@.type == 'PO_BOX')]").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("Core diagnostics: confidence populated on all three sub-fields, everything else absent")
+        void diagnosticsCoreNullObjectShape() throws Exception {
+            mockMvc.perform(get("/parse").param("address", "350 Fifth Avenue, New York, NY 10118"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.diagnostics.confidence.parse").isNumber())
+                    .andExpect(jsonPath("$.diagnostics.confidence.gazetteer").isNumber())
+                    .andExpect(jsonPath("$.diagnostics.confidence.final").isNumber())
+                    .andExpect(jsonPath("$.diagnostics.needsReview").isBoolean())
+                    .andExpect(jsonPath("$.diagnostics.countryCodeStatus").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.inputStructure").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.cbprStructured").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.fintracPoBoxInvalid").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.fieldConfidences").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.corrections").doesNotExist())
+                    .andExpect(jsonPath("$.diagnostics.traceLogs").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("Core diagnostics: confidence.parse/gazetteer/final are all equal to parseConfidence")
+        void diagnosticsCoreConfidenceCollapsesToParseConfidence() throws Exception {
+            String body = mockMvc.perform(get("/parse").param("address", "350 Fifth Avenue, New York, NY 10118"))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+
+            com.fasterxml.jackson.databind.JsonNode confidence =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(body).path("diagnostics").path("confidence");
+
+            double parse = confidence.path("parse").asDouble();
+            double gazetteer = confidence.path("gazetteer").asDouble();
+            double fin = confidence.path("final").asDouble();
+
+            org.assertj.core.api.Assertions.assertThat(parse).isEqualTo(gazetteer).isEqualTo(fin);
         }
     }
 
@@ -128,11 +169,12 @@ class AddressParseControllerTest {
         }
 
         @Test
-        @DisplayName("every result has a non-empty country")
-        void everyResultHasCountry() throws Exception {
+        @DisplayName("every result has raw, tokens, and diagnostics")
+        void everyResultHasSharedShape() throws Exception {
             mockMvc.perform(get("/demo"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$[*].country").isNotEmpty());
+                    .andExpect(jsonPath("$[*].raw").isNotEmpty())
+                    .andExpect(jsonPath("$[*].diagnostics").isNotEmpty());
         }
 
         @Test

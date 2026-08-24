@@ -228,8 +228,16 @@ public class AddressTokenizer implements AddressParsingService {
     }
 
     private double computeParseConfidence(List<AddressToken> tokens, String countryCode, String rawAddress) {
+        // Distinct mandatory TYPES present, not raw occurrence count -- this is a coverage
+        // check ("do we have a street name/city/postal code at all"), not a tally. A second
+        // same-type token (e.g. AddressSplitHealer's CITY-correction hint, present in the list
+        // by the time this runs -- see enrichCity() above) must not inflate confidence past
+        // what one-of-each already earns.
         long mandatory = tokens.stream()
-                .filter(t -> MANDATORY_TYPES.contains(t.type())).count();
+                .map(AddressToken::type)
+                .filter(MANDATORY_TYPES::contains)
+                .distinct()
+                .count();
         double base = 0.50 + (mandatory / 3.0) * 0.40;
 
         boolean hasHouse = tokens.stream()

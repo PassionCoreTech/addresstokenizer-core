@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor versions may contain breaking changes, as noted in the README's
 API Stability section).
 
+## [0.4.0] - 2026-08-24
+
+### Changed — **breaking**
+
+- `ParsedAddress`'s JSON output is restructured. The flat fields (`streetName`,
+  `buildingName`, `unit`, `floor`, `city`, `district`, `state`, `postalCode`), `tokens`,
+  and the derived `country` are no longer serialized at the top level — they move into
+  a new nested `general` object (`general.countryCode`, `general.streetName`, etc.),
+  built by the new `general()` accessor. `iso20022Result` is promoted from nested inside
+  `diagnostics` to its own top-level JSON section. Code that reads `ParsedAddress` as a
+  Java object is unaffected (the record's accessor methods are unchanged); code that
+  serializes it to JSON directly (rather than through `addresstokenizer-core-sample`'s
+  `/parse` endpoint, which is unaffected — see below) will see a different shape.
+- `ParseDiagnostics.confidence` changes type from `double` to a new `ConfidenceBreakdown`
+  record (`{parse, gazetteer, final}`), so a caller can see the token-coverage confidence,
+  the pre-penalty gazetteer match tier, and the post-penalty final value side by side
+  instead of only the final aggregate.
+- `ParseDiagnostics.fieldConfidences` and `AddressIso20022Result.fieldConfidence` change
+  value type from a plain `Double` to a new `FieldConfidenceEntry` record
+  (`{confidence, penalty}`, `penalty` omitted when none applied) — merges what were two
+  parallel confidence/penalty maps into one.
+- `ParseDiagnostics.subDivision` and `townLocation` are removed — both were pure
+  duplicates of `iso20022Result.ctrySubDvsn`/`twnLctnNm`; read those instead.
+- `TokenType.CORRECTED_CITY` is removed. Enrichment-corrected values (e.g. a typo'd city
+  fixed via gazetteer lookup) now replace the token's `value` in place, with the
+  as-parsed value preserved on the same token's new `original` field, rather than
+  appearing as a second, separately-typed token.
+- `addresstokenizer-core-sample`'s `GET /parse` response reshapes from
+  `{raw, country, tokens: [{type, value}]}` to `{raw, tokens, diagnostics}`. `diagnostics`
+  is always present (never `null`); on this free tier only `confidence` (`parse`/
+  `gazetteer`/`final` all equal — no gazetteer tier to report) and `needsReview` are
+  populated, matching the shape Pro's `/parse` returns with those two fields always
+  populated the same way.
+
+### Added
+
+- `AddressToken` gains an `original` field carrying the as-parsed value when enrichment
+  replaced it (see the `CORRECTED_CITY` removal above); `null` when the token's `value`
+  is unchanged from parsing. A new 4-argument constructor is available; the existing
+  2- and 3-argument constructors are unchanged.
+- `ParsedAddress.general()` and `ParsedAddress.iso20022Result()` accessor methods, and
+  three new model types backing them: `GeneralView`, `ConfidenceBreakdown`,
+  `FieldConfidenceEntry`.
+
+### Fixed
+
+- `ParsedAddress.countryName()` threw `IllformedLocaleException` for any address that
+  resolves country to a non-ISO value (e.g. the `"UNKNOWN"` detection-failure sentinel)
+  — now returns `null` instead.
+- `AddressTokenizer.parse()`'s parse confidence could exceed 1.0 for an address with a
+  corrected city (the confidence calculation counted mandatory-type token occurrences
+  rather than distinct types present, so a second same-type token could inflate the
+  score) — now counts distinct types.
+
 ## [0.3.0] - 2026-08-18
 
 ### Added
@@ -82,6 +136,7 @@ API Stability section).
   country parsers for US, UK, DE, FR, AU, CA (including Quebec French),
   Spring Boot auto-configuration, `addresstokenizer-core-sample` app.
 
+[0.4.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.4.0
 [0.3.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.3.0
 [0.2.1]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.2.1
 [0.2.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.2.0

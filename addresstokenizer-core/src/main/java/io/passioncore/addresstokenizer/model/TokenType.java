@@ -29,7 +29,6 @@ public enum TokenType {
     NEIGHBORHOOD,
     WARD,
     CITY,
-    CORRECTED_CITY,
     STATE,
     STATE_CODE,
     POSTAL_CODE,
