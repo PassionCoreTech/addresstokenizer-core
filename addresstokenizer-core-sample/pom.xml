@@ -43,6 +43,11 @@
 		Shows address parsing for US, UK, DE, FR, AU, and CA (including Quebec French).
 	</description>
 
+	<properties>
+		<!-- Parent sets this to true reactor-wide; the sample is the one module meant to run -->
+		<spring-boot.run.skip>false</spring-boot.run.skip>
+	</properties>
+
 	<dependencies>
 		<!-- Free-tier library — the only dependency you need -->
 		<dependency>
