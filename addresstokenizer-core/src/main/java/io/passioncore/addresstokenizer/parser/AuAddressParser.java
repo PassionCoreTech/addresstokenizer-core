@@ -50,7 +50,10 @@ public class AuAddressParser implements AddressParser {
         Pattern.compile("^(\\d+)/(\\d+[A-Za-z]?)\\s+");
 
     private static final Pattern UNIT_WORD =
-        Pattern.compile("(?i)^(Unit|Level|Lvl|Suite|Ste|Shop|Apt|Flat)\\s+([\\w/-]+)\\s*,?\\s*");
+        // [\w./-]+ (not just [\w/-]+) -- AU floor.unit-style suite numbering (e.g.
+        // "Suite 14.02" = Suite 02 on Level 14) uses a literal dot inside the value; without
+        // it the match stops at the dot and leaks the remainder ("02") into the street name.
+        Pattern.compile("(?i)^(Unit|Level|Lvl|Suite|Ste|Shop|Apt|Flat)\\s+([\\w./-]+)\\s*,?\\s*");
 
     private static final Pattern HOUSE_NO =
         Pattern.compile("^(\\d+[A-Za-z]?)\\s+");
@@ -95,7 +98,8 @@ public class AuAddressParser implements AddressParser {
         }
         int len = partList.size();
         String streetLine = remaining;
-        if (len >= 2) {
+        boolean cityFromComma = len >= 2;
+        if (cityFromComma) {
             String city = partList.get(len - 1).trim();
             tokens.add(token(TokenType.CITY, city));
             StringBuilder sb = new StringBuilder();
@@ -139,6 +143,16 @@ public class AuAddressParser implements AddressParser {
         }
         if (stStart >= 0) {
             tokens.add(token(TokenType.STREET_TYPE, stType));
+        }
+
+        // No comma separated the suburb from the street (e.g. "80 Druitt Street SYDNEY
+        // NSW 2000") -- the AU convention places the suburb right after the street type,
+        // before state+postcode, so whatever remains there is the suburb.
+        if (!cityFromComma && stEnd >= 0) {
+            String cityCandidate = streetLine.substring(stEnd).trim();
+            if (!cityCandidate.isEmpty()) {
+                tokens.add(token(TokenType.CITY, cityCandidate));
+            }
         }
 
         return new ParsedAddress(raw, "AU", tokens);

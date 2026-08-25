@@ -67,6 +67,13 @@ API Stability section).
   `AU`). The equal-length tie-break now prefers whichever name appears closer to the end
   of the string, matching mailing-address convention; the existing longer-name-wins rule
   is unchanged. Same fix applied to `detectInTail()`.
+- `AuAddressParser` dropped the suburb entirely when no comma separated it from the street
+  (e.g. `"... 80 Druitt Street SYDNEY NSW 2000 ..."`, a common valid AU layout) — `CITY`
+  is now also read from the text immediately following the street type when no
+  comma-delimited city segment was found.
+- `AuAddressParser`'s unit/suite value truncated at the first `.` (e.g. `"Suite 14.02"`,
+  AU's floor.unit-style suite numbering, came out as `"Suite 14"` with `".02"` leaking into
+  the street name) — the value now retains dots.
 
 ## [0.3.0] - 2026-08-18
 
