@@ -21,6 +21,7 @@ package io.passioncore.addresstokenizer.detector;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -162,9 +163,17 @@ public class CountryDetector implements CountryDetectorInterface {
         // Explicit country names — longest match wins so "UNITED KINGDOM" beats "CHINA"
         // when both appear in the same address string. Map iteration order is not
         // guaranteed, so we must scan all entries and pick the longest key that matches.
+        // Secondary tie-break when two names are the same length (e.g. "HONG KONG" and
+        // "AUSTRALIA", both 9 chars): prefer whichever name's LAST occurrence is closer
+        // to the end of the string. International mailing convention states the
+        // destination country last; a same-length name earlier in the text is more
+        // likely an organization/building name coincidence (e.g. "Hong Kong Tourism
+        // Board", "Hong Kong House") than the actual country declaration.
         Map.Entry<String, String> bestName = COUNTRY_NAME_HINT.entrySet().stream()
             .filter(e -> upper.contains(e.getKey()))
-            .max((a, b) -> Integer.compare(a.getKey().length(), b.getKey().length()))
+            .max(Comparator
+                .<Map.Entry<String, String>>comparingInt(e -> e.getKey().length())
+                .thenComparingInt(e -> upper.lastIndexOf(e.getKey())))
             .orElse(null);
         if (bestName != null) return bestName.getValue();
 
@@ -230,7 +239,9 @@ public class CountryDetector implements CountryDetectorInterface {
 
         return COUNTRY_NAME_HINT.entrySet().stream()
             .filter(e -> tail.contains(e.getKey()))
-            .max((a, b) -> Integer.compare(a.getKey().length(), b.getKey().length()))
+            .max(Comparator
+                .<Map.Entry<String, String>>comparingInt(e -> e.getKey().length())
+                .thenComparingInt(e -> tail.lastIndexOf(e.getKey())))
             .map(Map.Entry::getValue);
     }
 

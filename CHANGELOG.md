@@ -60,6 +60,13 @@ API Stability section).
   corrected city (the confidence calculation counted mandatory-type token occurrences
   rather than distinct types present, so a second same-type token could inflate the
   score) — now counts distinct types.
+- `CountryDetector.detect()` could resolve the wrong country at high confidence when two
+  country names of equal length both appeared in the address text (e.g. an address
+  mentioning "Hong Kong" twice as unrelated proper nouns, with "Australia" appearing once
+  as the actual trailing country declaration, previously resolved to `HK` instead of
+  `AU`). The equal-length tie-break now prefers whichever name appears closer to the end
+  of the string, matching mailing-address convention; the existing longer-name-wins rule
+  is unchanged. Same fix applied to `detectInTail()`.
 
 ## [0.3.0] - 2026-08-18
 

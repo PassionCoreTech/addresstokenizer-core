@@ -33,9 +33,10 @@ import io.passioncore.addresstokenizer.parser.UsAddressParser;
 
 /**
  * Core-only tests for {@link CountryDetector}, covering {@link #detectDeclaredCountryCode}
- * (plan 026). Basic {@code detect()}/{@code detectInTail()} coverage lives in
- * {@code addresstokenizer-pro}'s {@code CountryDetectorTest} (which exercises the full
- * parser list); this class is scoped to the new Core-only method.
+ * (plan 026) and the equal-length {@code COUNTRY_NAME_HINT} tie-break (plan 036). Broader
+ * {@code detect()}/{@code detectInTail()} coverage lives in {@code addresstokenizer-pro}'s
+ * {@code CountryDetectorTest} (which exercises the full parser list); this class carries
+ * only what needs standalone coverage in this module.
  */
 class CountryDetectorTest {
 
@@ -45,6 +46,20 @@ class CountryDetectorTest {
     );
 
     private final CountryDetector detector = new CountryDetector(parsers);
+
+    @Test
+    void trailingCountryWinsOverEarlierEqualLengthNameCollision() {
+        // "HONG KONG" (9 chars) appears twice as unrelated proper nouns (the sending
+        // organization's name, the building name); "AUSTRALIA" (9 chars) appears once,
+        // correctly, as the trailing country declaration. Real-world reported case
+        // (plan 036) that previously resolved to HK at 0.97 confidence. No AU parser is
+        // registered here -- detect() resolves this via the COUNTRY_NAME_HINT tie-break
+        // alone, before any postal-code pattern is even consulted.
+        assertThat(detector.detect(
+            "Hong Kong Tourism Board - Sydney Office Level 4 Hong Kong House "
+            + "80 Druitt Street SYDNEY NSW 2000 ,NEW SOUTH WALES, AUSTRALIA"))
+            .isEqualTo("AU");
+    }
 
     @Nested
     class DetectDeclaredCountryCode {
