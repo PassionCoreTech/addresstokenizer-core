@@ -74,6 +74,11 @@ API Stability section).
 - `AuAddressParser`'s unit/suite value truncated at the first `.` (e.g. `"Suite 14.02"`,
   AU's floor.unit-style suite numbering, came out as `"Suite 14"` with `".02"` leaking into
   the street name) — the value now retains dots.
+- `AuAddressParser` only ever captured the first unit-like prefix (`Unit`/`Level`/`Suite`/
+  etc.) — a stacked second prefix (e.g. `"Suite 14.02, Level 14, ..."`, restating the
+  level already encoded in the suite number) leaked into the street name instead of being
+  part of `UNIT`. `UNIT` now collects every stacked prefix into one value
+  (`"Suite 14.02, Level 14"`).
 
 ## [0.3.0] - 2026-08-18
 

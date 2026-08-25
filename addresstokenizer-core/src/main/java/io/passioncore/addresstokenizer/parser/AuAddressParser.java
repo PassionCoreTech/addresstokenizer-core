@@ -111,15 +111,26 @@ public class AuAddressParser implements AddressParser {
         }
 
         Matcher slashMatcher = UNIT_SLASH.matcher(streetLine);
-        Matcher unitMatcher  = UNIT_WORD.matcher(streetLine);
         if (slashMatcher.find()) {
             String unitVal = slashMatcher.group(1);
             tokens.add(token(TokenType.UNIT, unitVal));
             streetLine = slashMatcher.group(2) + " " + streetLine.substring(slashMatcher.end()).trim();
-        } else if (unitMatcher.find()) {
-            String unitVal = unitMatcher.group(1) + " " + unitMatcher.group(2);
-            tokens.add(token(TokenType.UNIT, unitVal));
-            streetLine = streetLine.substring(unitMatcher.end()).trim();
+        } else {
+            // AU addresses commonly stack multiple unit-like prefixes (e.g. "Suite 14.02,
+            // Level 14, ..." -- the suite's own floor.unit numbering restated explicitly as
+            // a separate "Level" segment). Consume every leading UNIT_WORD match, not just
+            // the first, so the whole stack becomes one UNIT value instead of the second
+            // prefix ("Level 14") leaking into the street name.
+            List<String> unitParts = new ArrayList<>();
+            Matcher unitMatcher = UNIT_WORD.matcher(streetLine);
+            while (unitMatcher.find() && unitMatcher.start() == 0) {
+                unitParts.add(unitMatcher.group(1) + " " + unitMatcher.group(2));
+                streetLine = streetLine.substring(unitMatcher.end()).trim();
+                unitMatcher = UNIT_WORD.matcher(streetLine);
+            }
+            if (!unitParts.isEmpty()) {
+                tokens.add(token(TokenType.UNIT, String.join(", ", unitParts)));
+            }
         }
 
         Matcher houseMatcher = HOUSE_NO.matcher(streetLine);
