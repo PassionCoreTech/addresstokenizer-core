@@ -141,6 +141,15 @@ List<ParsedAddress> results = tokenizer.parseBatch(addresses);
 ### Without Spring
 
 ```java
+AddressTokenizer tokenizer = AddressTokenizer.createDefault();
+ParsedAddress result = tokenizer.parseLines(List.of("10 Downing Street, London SW1A 2AA"));
+```
+
+`createDefault()` wires up all bundled country parsers, the fallback parser, and
+`CityCountryLookup`'s last-resort city detection — the same setup Spring Boot
+auto-configures for you. For a custom parser set, wire it manually instead:
+
+```java
 List<AddressParser> parsers = List.of(
     new UsAddressParser(),
     new UkAddressParser(),
