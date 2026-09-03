@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor versions may contain breaking changes, as noted in the README's
 API Stability section).
 
+## [0.5.0] - 2026-09-02
+
+### Added
+
+- `AddressTokenizer.createDefault()` — construct a fully-wired tokenizer without a Spring
+  container, for callers who don't use Spring Boot.
+- `addresstokenizer-core-sample`: `GET /demo/swift-examples` — parses 3 real addresses taken
+  from public bank ISO 20022 migration guides (Brussels/HSBC, London/ANZ, Citi's CUBA AVE
+  sanctions-screening false-positive example).
+- `addresstokenizer-core-sample`: `GET /demo/edge-cases` — demonstrates two
+  `CityCountryLookup` boundary cases (see Fixed below).
+
+### Fixed
+
+- `GenericAddressParser` (the low-confidence fallback used for any country with no dedicated
+  parser) discarded the real city whenever it shared a comma-segment with the postal code
+  (e.g. "1000 BRUSSELS" kept only the postal code, dropping "BRUSSELS"), while blindly
+  labeling every other non-first segment `CITY` — including floor/unit markers and the bare
+  trailing country code. Now keeps the postal segment's remaining text as `CITY`, routes
+  floor/unit-shaped segments to `UNIT`, and no longer duplicates the country code as `CITY`.
+- `CountryDetector` misread a Chinese address as India whenever its 6-digit postal code
+  appeared with a `CN` marker but no literal word "CHINA" (China's own postal-code shape
+  collided with `IN_POSTAL`'s generic 6-digit fallback). Now correctly detected as `CN`.
+- `CityCountryLookup`'s last-resort country-detection fallback (used only when no postal
+  code or country-name text matches at all) could let an ordinary word shadow an unrelated
+  real city elsewhere in the world — e.g. "Donald" coincidentally matching a small town in
+  Victoria, Australia. The underlying `city_countries.tsv` is regenerated with a population
+  floor (place names with population ≥ 10,000 only; 171,750 → 41,317 entries), replacing the
+  previous length/word-list heuristics, which also incorrectly excluded some legitimately
+  large cities that happened to have short names (e.g. "Aba", Nigeria's third-largest city).
+- `UkAddressParser` discarded address content that came after a matched postcode, so a city
+  name following the postcode (e.g. "...EC3R 7NE, London, GB") was silently dropped instead
+  of becoming the `CITY` token.
+- `QuebecFrenchParser` could misdetect a non-numeric reference-number line preceding the real
+  address (e.g. "CA783643864230") as the street line, and didn't strip a trailing
+  self-referential province/country mention from the city value.
+- `CaAddressParser` misfiled the city as the street name for an address consisting only of a
+  PO Box and a city (e.g. "PO Box 9000, Victoria, BC V8W 9V6").
+- `FrAddressParser`, `DeAddressParser`, `UsAddressParser`, `UkAddressParser`, and
+  `AuAddressParser` failed to split street from city on addresses with no comma separators
+  (common in multi-line pasted addresses); all five now fall back to a newline-aware split.
+- `AddressTokenizer.parseLines()`'s PO Box branch now returns the same SWIFT-normalized `raw`
+  value as every other address (previously returned the un-normalized original text).
+
 ## [0.4.0] - 2026-08-24
 
 ### Changed — **breaking**
@@ -155,6 +199,7 @@ API Stability section).
   country parsers for US, UK, DE, FR, AU, CA (including Quebec French),
   Spring Boot auto-configuration, `addresstokenizer-core-sample` app.
 
+[0.5.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.5.0
 [0.4.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.4.0
 [0.3.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.3.0
 [0.2.1]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.2.1

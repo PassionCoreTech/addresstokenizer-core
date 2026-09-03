@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.CommaSegmentCityExtractor;
 
 /**
  * Fallback address tokenizer used when no country-specific parser is registered.
@@ -56,8 +57,20 @@ public class GenericAddressParser implements AddressParser {
             if (postalMatcher.find()) {
                 String postal = postalMatcher.group(1);
                 tokens.add(new AddressToken(TokenType.POSTAL_CODE, postal));
+                // A segment sharing space with the postal code (e.g. "1000 BRUSSELS") still
+                // carries the real city -- keep it instead of silently discarding it.
+                String remainder = (part.substring(0, postalMatcher.start())
+                        + part.substring(postalMatcher.end())).trim();
+                if (!remainder.isBlank()) {
+                    tokens.add(new AddressToken(TokenType.CITY, remainder));
+                }
             } else if (i == 0) {
                 tokens.add(new AddressToken(TokenType.STREET_NAME, part));
+            } else if (part.equalsIgnoreCase(country)) {
+                // AddressTokenizer already adds a COUNTRY_CODE token separately
+                // (withCountryCodeToken) -- don't also mislabel this as CITY.
+            } else if (CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker(part)) {
+                tokens.add(new AddressToken(TokenType.UNIT, part));
             } else {
                 tokens.add(new AddressToken(TokenType.CITY, part));
             }

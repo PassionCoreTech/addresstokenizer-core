@@ -29,6 +29,12 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.CommaSegmentCityExtractor;
+import io.passioncore.addresstokenizer.parser.support.HouseNumberExtractor;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
+import io.passioncore.addresstokenizer.parser.support.NewlineFallbackSplitter;
+import io.passioncore.addresstokenizer.parser.support.PostalCodeStripper;
+import io.passioncore.addresstokenizer.parser.support.SelfReferenceStripper;
 
 @Component
 public class UkAddressParser implements AddressParser {
@@ -39,6 +45,11 @@ public class UkAddressParser implements AddressParser {
 
     private static final Pattern UNIT =
         Pattern.compile("(?i)^(Flat|Apt|Apartment|Unit|Suite|Room|Floor)\\s+([\\w/-]+)\\s*,?\\s*");
+
+    // NNth-Floor-shaped content (e.g. "6TH FLOOR", "18th Floor") -- unlike UNIT above, this can
+    // appear anywhere in the street line, not just at the start (docs/plans/040.05).
+    private static final Pattern ORDINAL_FLOOR =
+        Pattern.compile("(?i)\\b(\\d+(?:ST|ND|RD|TH))\\s+(FLOOR|FL)\\b\\s*,?\\s*");
 
     private static final Pattern HOUSE_NO =
         Pattern.compile("^(\\d+[A-Za-z]?)\\s+");
@@ -62,47 +73,73 @@ public class UkAddressParser implements AddressParser {
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().replaceAll("\\s{2,}", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
-        String remaining = addr;
-        Matcher pcMatcher = POSTCODE.matcher(addr);
-        String lastPostcode = null;
-        int lastStart = -1, lastEnd = -1;
-        while (pcMatcher.find()) {
-            lastPostcode = pcMatcher.group(1).toUpperCase().replace(" ", "");
-            if (lastPostcode.length() > 3) {
-                lastPostcode = lastPostcode.substring(0, lastPostcode.length() - 3)
-                    + " " + lastPostcode.substring(lastPostcode.length() - 3);
-            }
-            lastStart = pcMatcher.start();
-            lastEnd   = pcMatcher.end();
-        }
-        if (lastPostcode != null) {
-            tokens.add(token(TokenType.POSTAL_CODE, lastPostcode));
-            remaining = addr.substring(0, lastStart).trim().replaceAll("[,\\s]+$", "");
+        PostalCodeStripper.StripResult pc = PostalCodeStripper.stripLastMatch(addr, POSTCODE);
+        String remaining = pc.remainingBefore();
+        if (pc.matchedValue() != null) {
+            tokens.add(token(TokenType.POSTAL_CODE, normalizePostcode(pc.matchedValue())));
         }
 
-        List<String> partList = new ArrayList<>(List.of(remaining.split(",")));
-        while (partList.size() >= 2 && SELF_REFERENCE.contains(partList.get(partList.size() - 1).trim().toUpperCase())) {
-            partList.remove(partList.size() - 1);
-        }
-        int len = partList.size();
+        // docs/plans/040.05: a real bank-published address (ANZ's own ISO 20022 guide) puts
+        // town/country content AFTER the postcode instead of the postcode being the final
+        // element -- the pre-migration code took `remainingBefore` on faith and never looked at
+        // `remainingAfter`, so that trailing content (here, the real city) was silently dropped
+        // and the last segment BEFORE the postcode got misread as CITY instead. When
+        // remainingAfter carries real content, prefer it as the city source.
+        String cityFromAfter = extractCityFromTrailingText(pc.remainingAfter());
+
+        List<String> partList = new ArrayList<>(List.of(NewlineFallbackSplitter.split(remaining, 0)));
         String streetLine = remaining;
-        if (len >= 2) {
-            String city = partList.get(len - 1).trim();
-            tokens.add(token(TokenType.CITY, city));
-            if (len >= 3) {
-                String nbhd = partList.get(len - 2).trim();
-                if (!nbhd.isEmpty()) {
-                    tokens.add(token(TokenType.NEIGHBORHOOD, nbhd));
+        if (cityFromAfter != null) {
+            tokens.add(token(TokenType.CITY, cityFromAfter));
+
+            // CITY already came from remainingAfter, but `remaining` (everything before the
+            // postcode) can still carry real NEIGHBORHOOD/building content (e.g. "THE CORN
+            // EXCHANGE") -- don't just drop it. Set aside any trailing floor/unit-shaped segments
+            // first (e.g. "6TH FLOOR") so they aren't mistaken for a neighborhood; they're folded
+            // back into streetLine below so ORDINAL_FLOOR/UNIT still get a chance at them.
+            List<String> beforeSegments = SelfReferenceStripper.strip(partList, SELF_REFERENCE);
+            int contentEnd = beforeSegments.size();
+            while (contentEnd > 0
+                    && CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker(beforeSegments.get(contentEnd - 1))) {
+                contentEnd--;
+            }
+            List<String> content = beforeSegments.subList(0, contentEnd);
+            List<String> setAside = beforeSegments.subList(contentEnd, beforeSegments.size());
+
+            StringBuilder sb = new StringBuilder();
+            if (content.size() >= 2) {
+                String neighborhood = content.get(content.size() - 1).trim();
+                if (!neighborhood.isEmpty()) {
+                    tokens.add(token(TokenType.NEIGHBORHOOD, neighborhood));
+                }
+                for (int i = 0; i < content.size() - 1; i++) {
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(content.get(i).trim());
+                }
+            } else {
+                for (String s : content) {
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(s.trim());
                 }
             }
-            StringBuilder sb = new StringBuilder();
-            int endIdx = len >= 3 ? len - 2 : len - 1;
-            for (int i = 0; i < endIdx; i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(partList.get(i).trim());
+            for (String s : setAside) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(s.trim());
             }
             streetLine = sb.toString();
+        } else {
+            List<String> segments = SelfReferenceStripper.strip(partList, SELF_REFERENCE);
+            CommaSegmentCityExtractor.Result cityResult =
+                CommaSegmentCityExtractor.extractLastAsCity(segments, true);
+            if (cityResult.city() != null) {
+                tokens.add(token(TokenType.CITY, cityResult.city()));
+            }
+            if (cityResult.neighborhood() != null) {
+                tokens.add(token(TokenType.NEIGHBORHOOD, cityResult.neighborhood()));
+            }
+            streetLine = cityResult.streetLine();
         }
 
         Matcher unitMatcher = UNIT.matcher(streetLine);
@@ -110,13 +147,21 @@ public class UkAddressParser implements AddressParser {
             String unitVal = unitMatcher.group(1) + " " + unitMatcher.group(2);
             tokens.add(token(TokenType.UNIT, unitVal));
             streetLine = streetLine.substring(unitMatcher.end()).trim();
+        } else {
+            Matcher ordinalFloorMatcher = ORDINAL_FLOOR.matcher(streetLine);
+            if (ordinalFloorMatcher.find()) {
+                String unitVal = (ordinalFloorMatcher.group(1) + " " + ordinalFloorMatcher.group(2)).toUpperCase();
+                tokens.add(token(TokenType.UNIT, unitVal));
+                streetLine = (streetLine.substring(0, ordinalFloorMatcher.start())
+                        + streetLine.substring(ordinalFloorMatcher.end()))
+                    .trim().replaceAll("^[,\\s]+|[,\\s]+$", "").replaceAll("\\s{2,}", " ");
+            }
         }
 
-        Matcher houseMatcher = HOUSE_NO.matcher(streetLine);
-        if (houseMatcher.find()) {
-            String houseNo = houseMatcher.group(1);
-            tokens.add(token(TokenType.HOUSE_NO, houseNo));
-            streetLine = streetLine.substring(houseMatcher.end()).trim();
+        HouseNumberExtractor.Result houseResult = HouseNumberExtractor.extractLeading(streetLine, HOUSE_NO);
+        if (houseResult.houseNo() != null) {
+            tokens.add(token(TokenType.HOUSE_NO, houseResult.houseNo()));
+            streetLine = houseResult.remaining();
         }
 
         Matcher stMatcher = STREET_TYPE.matcher(streetLine);
@@ -136,6 +181,39 @@ public class UkAddressParser implements AddressParser {
         }
 
         return new ParsedAddress(raw, "GB", tokens);
+    }
+
+    /** UK postcodes are stored space-separated before the final 3-character "inward" part
+     *  (e.g. {@code "SW1A 2AA"}), regardless of how the input was spaced. */
+    private static String normalizePostcode(String rawMatch) {
+        String value = rawMatch.toUpperCase().replace(" ", "");
+        if (value.length() > 3) {
+            value = value.substring(0, value.length() - 3) + " " + value.substring(value.length() - 3);
+        }
+        return value;
+    }
+
+    /** docs/plans/040.05's fix: recover CITY from text trailing the postcode (e.g. ", LONDON,
+     *  GB") when present, instead of silently discarding it. Returns {@code null} when there's
+     *  nothing usable, so the caller falls back to the classic "postcode at end" extraction. */
+    private static String extractCityFromTrailingText(String remainingAfter) {
+        if (remainingAfter == null || remainingAfter.isBlank()) {
+            return null;
+        }
+        List<String> segments = SelfReferenceStripper.strip(
+            new ArrayList<>(List.of(NewlineFallbackSplitter.split(remainingAfter, 0))), SELF_REFERENCE);
+        if (segments.isEmpty()) {
+            return null;
+        }
+        String candidate = segments.get(segments.size() - 1).trim();
+        // SelfReferenceStripper only strips a self-reference when something more specific
+        // precedes it (docs/plans/029's rule) -- a lone ", GB" with nothing else has no earlier
+        // segment to strip down to, so it survives as the sole entry here. Reject it explicitly
+        // rather than mistake the country code itself for a city.
+        if (candidate.isEmpty() || SELF_REFERENCE.contains(candidate.toUpperCase())) {
+            return null;
+        }
+        return candidate;
     }
 
     private AddressToken token(TokenType type, String value) {

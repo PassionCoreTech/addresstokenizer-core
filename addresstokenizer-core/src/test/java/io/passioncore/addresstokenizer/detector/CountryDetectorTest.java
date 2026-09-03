@@ -61,6 +61,34 @@ class CountryDetectorTest {
             .isEqualTo("AU");
     }
 
+    @Test
+    void bareCnTokenWithSixDigitPostalDetectedAsChinaNotIndia() {
+        // Plan 043: China's own 6-digit postal code (no literal "CHINA" word) must not be
+        // misread by IN_POSTAL's generic \d{6} fallback -- the "CN" marker right after the
+        // postal code must win first.
+        assertThat(detector.detect(
+            "350503 CN FUJIAN SHENG FUZHOU SHI LIANJIANG XIAN DANYANG ZHEN XINYANG CUN "
+            + "TUANJIE LU 10 HAO CHEN LIGUO XIANSHENG"))
+            .isEqualTo("CN");
+    }
+
+    @Test
+    void literalChinaWordStillDetectedCorrectly() {
+        // Regression guard: this already worked before plan 043 via COUNTRY_NAME_HINT's
+        // "CHINA" entry -- must keep working once the CN-specific checks are added nearby.
+        assertThat(detector.detect(
+            "LI WEI NO 88 XINHUA ROAD CHAOYANG DISTRICT BEIJING 100000 CHINA"))
+            .isEqualTo("CN");
+    }
+
+    @Test
+    void sixDigitPostalWithNoCnMarkerStillDetectedAsIndia() {
+        // Negative case for the plan 043 CN fix: a real Indian PIN code (6 digits, no "CN"
+        // token, no literal country name) must still fall through to IN_POSTAL as before.
+        assertThat(detector.detect("12 MG Road Bangalore 560001"))
+            .isEqualTo("IN");
+    }
+
     @Nested
     class DetectDeclaredCountryCode {
 

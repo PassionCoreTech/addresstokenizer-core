@@ -30,6 +30,12 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.CommaSegmentCityExtractor;
+import io.passioncore.addresstokenizer.parser.support.HouseNumberExtractor;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
+import io.passioncore.addresstokenizer.parser.support.NewlineFallbackSplitter;
+import io.passioncore.addresstokenizer.parser.support.PostalCodeStripper;
+import io.passioncore.addresstokenizer.parser.support.SelfReferenceStripper;
 
 @Component
 public class UsAddressParser implements AddressParser {
@@ -75,13 +81,16 @@ public class UsAddressParser implements AddressParser {
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().replaceAll("\\s{2,}", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
-        Matcher zipMatcher = ZIP.matcher(addr);
-        String remaining = addr;
-        if (zipMatcher.find()) {
-            String zip = zipMatcher.group(1);
-            tokens.add(token(TokenType.POSTAL_CODE, zip));
-            remaining = addr.substring(0, zipMatcher.start()).trim().replaceAll("[,\\s]+$", "");
+        PostalCodeStripper.StripResult zipResult = PostalCodeStripper.stripLastMatch(addr, ZIP);
+        String remaining = zipResult.remainingBefore();
+        if (zipResult.matchedValue() != null) {
+            tokens.add(token(TokenType.POSTAL_CODE, zipResult.matchedValue()));
+            // zipResult.remainingAfter() is intentionally not consulted here -- ZIP is the last
+            // element in every US address shape this parser has ever supported, matching the
+            // pre-migration behaviour exactly (docs/plans/045.01: US/DE migration is a pure
+            // refactor, no behaviour change).
         }
 
         Matcher stateMatcher = STATE.matcher(remaining);
@@ -97,15 +106,14 @@ public class UsAddressParser implements AddressParser {
             remaining = remaining.substring(0, stateStart).trim().replaceAll("[,\\s]+$", "");
         }
 
-        List<String> lines = new ArrayList<>(Arrays.asList(remaining.split(",")));
-        while (lines.size() >= 2 && SELF_REFERENCE.contains(lines.get(lines.size() - 1).trim().toUpperCase())) {
-            lines.remove(lines.size() - 1);
+        List<String> lines = SelfReferenceStripper.strip(
+            Arrays.asList(NewlineFallbackSplitter.split(remaining, 0)), SELF_REFERENCE);
+        CommaSegmentCityExtractor.Result cityResult =
+            CommaSegmentCityExtractor.extractLastAsCity(lines, false);
+        if (cityResult.city() != null) {
+            tokens.add(token(TokenType.CITY, cityResult.city().toUpperCase()));
         }
-        if (lines.size() >= 2) {
-            String cityLine = lines.get(lines.size() - 1).trim();
-            tokens.add(token(TokenType.CITY, cityLine.toUpperCase()));
-            remaining = String.join(",", lines.subList(0, lines.size() - 1)).trim();
-        }
+        remaining = cityResult.streetLine();
 
         Matcher unitMatcher = UNIT.matcher(remaining);
         if (unitMatcher.find()) {
@@ -123,11 +131,10 @@ public class UsAddressParser implements AddressParser {
                     .trim().replaceAll("^[,\\s]+|[,\\s]+$", "").replaceAll("\\s{2,}", " ");
         }
 
-        Matcher houseMatcher = HOUSE_NO.matcher(remaining);
-        if (houseMatcher.find()) {
-            String houseNo = houseMatcher.group(1);
-            tokens.add(token(TokenType.HOUSE_NO, houseNo));
-            remaining = remaining.substring(houseMatcher.end()).trim();
+        HouseNumberExtractor.Result houseResult = HouseNumberExtractor.extractLeading(remaining, HOUSE_NO);
+        if (houseResult.houseNo() != null) {
+            tokens.add(token(TokenType.HOUSE_NO, houseResult.houseNo()));
+            remaining = houseResult.remaining();
         }
 
         Matcher streetTypeMatcher = STREET_TYPE.matcher(remaining);

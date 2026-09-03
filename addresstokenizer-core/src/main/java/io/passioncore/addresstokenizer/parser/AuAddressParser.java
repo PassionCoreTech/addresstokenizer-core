@@ -29,6 +29,8 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
+import io.passioncore.addresstokenizer.parser.support.NewlineFallbackSplitter;
 
 /**
  * Australian address tokenizer.
@@ -76,6 +78,7 @@ public class AuAddressParser implements AddressParser {
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().replaceAll("\\s{2,}", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
         String remaining = addr;
         Matcher spMatcher = STATE_POSTCODE.matcher(addr);
@@ -92,7 +95,7 @@ public class AuAddressParser implements AddressParser {
             remaining = addr.substring(0, spStart).trim().replaceAll("[,\\s]+$", "");
         }
 
-        List<String> partList = new ArrayList<>(List.of(remaining.split(",")));
+        List<String> partList = new ArrayList<>(List.of(NewlineFallbackSplitter.split(remaining, 0)));
         while (partList.size() >= 2 && SELF_REFERENCE.contains(partList.get(partList.size() - 1).trim().toUpperCase())) {
             partList.remove(partList.size() - 1);
         }

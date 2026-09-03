@@ -30,6 +30,7 @@ import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.NormalizationHints;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -117,6 +118,7 @@ public class CaAddressParser implements AddressParser {
     private ParsedAddress parseEnglishCa(String raw) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().toUpperCase().replaceAll("\\s{2,}", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
         List<String> segs = new ArrayList<>();
         for (String s : addr.split("[,\\n\\r]+")) {
@@ -124,6 +126,7 @@ public class CaAddressParser implements AddressParser {
             if (!t.isEmpty()) segs.add(t);
         }
         if (segs.isEmpty()) return new ParsedAddress(raw, "CA", tokens);
+        int originalSegCount = segs.size();
 
         // Step 1 — postal code (right-to-left scan)
         for (int i = segs.size() - 1; i >= 0; i--) {
@@ -166,6 +169,21 @@ public class CaAddressParser implements AddressParser {
         // Step 3 — unit keywords and city
         String streetLine = null;
         String city = "";
+        // Only one segment survived postal/province stripping, but the input was
+        // originally delimited into 2+ parts -- e.g. a PO-Box-only address whose street
+        // role was already stripped out upstream by AddressTokenizer's PO Box detection,
+        // leaving just "Victoria, BC V8W 9V6" -> "Victoria" here. The lone leftover is the
+        // city, not a street; without this, it falls into the streetLine branch below and
+        // no CITY token is ever produced (plan 050).
+        //
+        // Guarded by shape, not just count: a genuinely street-only address with no city
+        // at all (e.g. "8551 GILBERT RD\nON L4B 3P8", newline counts as a delimiter too)
+        // also collapses to one segment here, and that segment must stay streetLine so
+        // AddressSplitHealer's postal-derived fallback can still supply the city --
+        // otherwise a real street gets misfiled as a city instead.
+        boolean lonelySegmentIsCity = segs.size() == 1 && originalSegCount >= 2
+                && !HOUSE_NO.matcher(segs.get(0)).find()
+                && !STREET_TYPE.matcher(segs.get(0)).find();
         for (int i = 0; i < segs.size(); i++) {
             String seg = segs.get(i);
             Matcher um = STREET_LINE_UNIT.matcher(seg);
@@ -178,7 +196,9 @@ public class CaAddressParser implements AddressParser {
             um.appendTail(sb);
             String leftover = sb.toString().replaceAll("\\s{2,}", " ").trim();
 
-            if (streetLine == null) {
+            if (lonelySegmentIsCity) {
+                if (!leftover.isBlank()) city = leftover;
+            } else if (streetLine == null) {
                 if (!leftover.isBlank()) streetLine = leftover;
             } else {
                 if (!leftover.isBlank()) {

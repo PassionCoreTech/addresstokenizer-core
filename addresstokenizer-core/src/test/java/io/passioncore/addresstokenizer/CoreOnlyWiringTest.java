@@ -163,4 +163,12 @@ class CoreOnlyWiringTest {
         // country() returns COUNTRY_CODE token or falls back to countryCode() component
         assertThat(p.country()).isEqualTo("US");
     }
+
+    @Test
+    void parseLines_poBoxAddress_rawIsSwiftNormalized() {
+        // Regression: the PO Box branch of parseLines() used to return the un-normalised
+        // rawJoined lines instead of parsed.raw(), disagreeing with the non-PO-Box branch.
+        ParsedAddress p = tokenizer.parseLines(List.of("PO Box 9000, Victoria, BC V8W 9V6"));
+        assertThat(p.raw()).isEqualTo("PO BOX 9000, VICTORIA, BC V8W 9V6");
+    }
 }

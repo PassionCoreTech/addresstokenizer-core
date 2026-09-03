@@ -185,4 +185,123 @@ class AddressParseControllerTest {
                     .andExpect(jsonPath("$[*].tokens[0]").isNotEmpty());
         }
     }
+
+    // ── /demo/swift-examples endpoint (docs/plans/040.04) ───────────────────
+
+    @Nested
+    @DisplayName("GET /demo/swift-examples")
+    class SwiftExamplesEndpoint {
+
+        @Test
+        @DisplayName("returns 3 results")
+        void returnsList() throws Exception {
+            mockMvc.perform(get("/demo/swift-examples"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(3));
+        }
+
+        @Test
+        @DisplayName("Cuba Ave (BQA-004): country stays US, never CU")
+        void cubaAveDoesNotResolveToCuba() throws Exception {
+            mockMvc.perform(get("/demo/swift-examples"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[2].tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains("US")))
+                    .andExpect(jsonPath("$[2].tokens[?(@.type == 'CITY')].value")
+                            .value(contains("NEW YORK CITY")))
+                    .andExpect(jsonPath("$[2].tokens[?(@.type == 'POSTAL_CODE')].value")
+                            .value(contains("10306")));
+        }
+
+        @Test
+        @DisplayName("Brussels (BQA-002): unsupported country (BE has no parser), city fixed — CITY resolves to BRUSSELS")
+        void brusselsResolvesCityCorrectlyViaGenericFallback() throws Exception {
+            // Belgium is not in PostalCodeLoader.SUPPORTED_COUNTRIES, so this goes through
+            // GenericAddressParser, the low-confidence fallback used for any unsupported country.
+            // Was: the fallback kept only the postal-code digits from "1000 BRUSSELS" and
+            // discarded "BRUSSELS", while blindly labeling every other non-first segment CITY --
+            // producing CITY=18TH FLOOR and a duplicate, wrong CITY=BE alongside the real
+            // COUNTRY_CODE=BE token. Fixed in GenericAddressParser: a segment sharing space with
+            // the postal code now keeps its remaining text as CITY, a floor/unit-shaped segment
+            // becomes UNIT (reusing CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker), and a
+            // bare segment matching the country code is dropped instead of duplicated as CITY.
+            mockMvc.perform(get("/demo/swift-examples"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains("BE")))
+                    .andExpect(jsonPath("$[0].tokens[?(@.type == 'POSTAL_CODE')].value")
+                            .value(contains("1000")))
+                    .andExpect(jsonPath("$[0].tokens[?(@.type == 'CITY')].value")
+                            .value(contains("BRUSSELS")))
+                    .andExpect(jsonPath("$[0].tokens[?(@.type == 'UNIT')].value")
+                            .value(contains("18TH FLOOR")));
+        }
+
+        @Test
+        @DisplayName("Mark Lane (BQA-003): fixed (docs/plans/045.01) — CITY resolves to LONDON")
+        void markLaneResolvesCorrectly() throws Exception {
+            // Was: UkAddressParser discarded address content after a matched postcode, so
+            // "LONDON, GB" (trailing EC3R 7NE here) got dropped before CITY was derived, and
+            // "6TH FLOOR" was misread as CITY instead. Fixed by migrating UkAddressParser onto
+            // the shared parser.support toolkit (docs/plans/045), which recovers CITY from text
+            // trailing the postcode instead of silently discarding it.
+            mockMvc.perform(get("/demo/swift-examples"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[1].tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains("GB")))
+                    .andExpect(jsonPath("$[1].tokens[?(@.type == 'HOUSE_NO')].value")
+                            .value(contains("55")))
+                    .andExpect(jsonPath("$[1].tokens[?(@.type == 'CITY')].value")
+                            .value(contains("LONDON")))
+                    .andExpect(jsonPath("$[1].tokens[?(@.type == 'NEIGHBORHOOD')].value")
+                            .value(contains("THE CORN EXCHANGE")))
+                    .andExpect(jsonPath("$[1].tokens[?(@.type == 'UNIT')].value")
+                            .value(contains("6TH FLOOR")));
+        }
+    }
+
+    // ── /demo/edge-cases endpoint (docs/plans/040.03, 040.06) ───────────────
+
+    @Nested
+    @DisplayName("GET /demo/edge-cases")
+    class DemoEdgeCasesEndpoint {
+
+        @Test
+        @DisplayName("returns 2 results, each with label/why/input/result")
+        void returnsList() throws Exception {
+            mockMvc.perform(get("/demo/edge-cases"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(2))
+                    .andExpect(jsonPath("$[*].label").isNotEmpty())
+                    .andExpect(jsonPath("$[*].why").isNotEmpty())
+                    .andExpect(jsonPath("$[*].input").isNotEmpty())
+                    .andExpect(jsonPath("$[*].result").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("\"MEET ME AT DONALD\": no longer misresolves to AU (population floor, 040.06)")
+        void donaldNoLongerResolvesToAustralia() throws Exception {
+            // Before 040.06: CityCountryLookup's last-resort fallback matched "Donald" against
+            // an obscure real town in Victoria, Australia (pop. 1,469) with no other evidence.
+            // After: that name falls under the 10,000 population floor and is gone from
+            // city_countries.tsv, so this honestly stays unresolved instead of a wrong AU.
+            mockMvc.perform(get("/demo/edge-cases"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].result.tokens[?(@.type == 'COUNTRY_CODE')]").isEmpty());
+        }
+
+        @Test
+        @DisplayName("\"SOMETHING ABA\": correctly resolves NG (population floor replaces length guard, 040.03/040.06)")
+        void abaResolvesToNigeria() throws Exception {
+            // "Aba" is Nigeria's third-largest metro area (1.16M people) -- previously excluded
+            // only because it's 3 characters (040.03's length guard). The population floor
+            // trusts it correctly instead.
+            mockMvc.perform(get("/demo/edge-cases"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[1].result.tokens[?(@.type == 'COUNTRY_CODE')].value")
+                            .value(contains("NG")));
+        }
+    }
 }

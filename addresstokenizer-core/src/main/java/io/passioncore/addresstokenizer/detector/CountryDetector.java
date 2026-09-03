@@ -54,6 +54,14 @@ public class CountryDetector implements CountryDetectorInterface {
     // is exactly two letters -- nothing else (no digits, no extra words).
     private static final Pattern BARE_COUNTRY_CODE = Pattern.compile("^[A-Za-z]{2}$");
 
+    // China (CN): a bare "CN" token, or a 6-digit postal code directly followed by "CN"
+    // (Chinese mailing convention puts the postal code before the country marker, e.g.
+    // "350503 CN FUJIAN SHENG..."). Must be checked before IN_POSTAL below -- China's own
+    // 6-digit postal code would otherwise be misread as an Indian PIN code whenever no
+    // literal "CHINA" word is present (COUNTRY_NAME_HINT above already covers that case).
+    private static final Pattern CN_BARE_CODE = Pattern.compile("(?i)\\bCN\\b");
+    private static final Pattern CN_POSTAL_CODE = Pattern.compile("\\b\\d{6}\\s*CN\\b");
+
     /**
      * Unambiguous US full state names used as a last-resort US signal when no postal
      * code matches. Multi-word names are listed first to prevent partial matches
@@ -85,7 +93,9 @@ public class CountryDetector implements CountryDetectorInterface {
 
     // Explicit country names checked before postal-code patterns.
     // Ordered: longest/most-specific names first to prevent substring shadowing.
-    private static final Map<String, String> COUNTRY_NAME_HINT = Map.ofEntries(
+    // Package-private (not private): CityCountryLookup also reads this to exclude country
+    // names from city-lookup candidacy -- see plan 040.03.
+    static final Map<String, String> COUNTRY_NAME_HINT = Map.ofEntries(
         Map.entry("UNITED KINGDOM",    "GB"),
         Map.entry("GREAT BRITAIN",     "GB"),
         Map.entry("UNITED STATES",     "US"),
@@ -187,6 +197,13 @@ public class CountryDetector implements CountryDetectorInterface {
                 || upper.contains("HK CN") || upper.contains("CN HK")
                 || address.matches(".*[乂新香龍港磡].*"))
             return "HK";
+
+        // China (CN): bare "CN" token or "<6-digit postal> CN" -- must run before IN_POSTAL's
+        // generic 6-digit fallback below so a Chinese postal code (e.g. "350503") is not
+        // misread as an Indian PIN code when no literal "CHINA" word is present.
+        if (CN_POSTAL_CODE.matcher(upper).find() || CN_BARE_CODE.matcher(upper).find())
+            return "CN";
+
         if (CaAddressParser.POSTAL_FULL.matcher(address).find()
                 || (CaAddressParser.PROVINCE.matcher(address).find()
                     && address.matches(".*\\b[A-Z]\\d[A-Z]\\b.*"))) {

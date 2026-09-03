@@ -28,6 +28,8 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
+import io.passioncore.addresstokenizer.parser.support.NewlineFallbackSplitter;
 
 /**
  * French address tokenizer. Street type comes BEFORE street name.
@@ -55,6 +57,13 @@ public class FrAddressParser implements AddressParser {
             "Allée|Allee|Place|Pl|Chemin|Route|Rte|Passage|Villa|Square|" +
             "Cité|Cite|Quai|Voie|Ruelle|Résidence|Grande Rue|Domaine)\\b");
 
+    // Trailing self-reference to this parser's own country on the postal+city line (e.g. a
+    // real bank fixture's "13340 MARSEILLE FRANCE") -- not part of the city name itself.
+    // See docs/plans/029 for the bug class this mirrors (US/UK strip the same class of noise
+    // from their own comma segments via SELF_REFERENCE).
+    private static final Pattern TRAILING_SELF_REFERENCE =
+        Pattern.compile("(?i)(?:^|\\s+)(?:FRANCE|FR)$");
+
     @Override public String postalCodePattern() { return POSTAL_CITY.pattern(); }
     @Override public String countryCode() { return "FR"; }
     @Override public int detectionPriority() { return 30; }
@@ -63,10 +72,20 @@ public class FrAddressParser implements AddressParser {
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().replaceAll("\\s{2,}", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
-        String[] parts = addr.split(",", 2);
-        String streetPart = parts[0].trim();
-        String cityPart   = parts.length > 1 ? parts[1].trim() : "";
+        String streetPart;
+        String cityPart;
+        NewlineFallbackSplitter.Segments lineSegments =
+            NewlineFallbackSplitter.trySegmentByLine(addr, POSTAL_CITY, STREET_TYPE);
+        if (lineSegments != null) {
+            streetPart = lineSegments.streetLine();
+            cityPart   = lineSegments.cityLine();
+        } else {
+            String[] parts = NewlineFallbackSplitter.split(addr, 2);
+            streetPart = parts[0].trim();
+            cityPart   = parts.length > 1 ? parts[1].trim() : "";
+        }
 
         int cityComma = cityPart.indexOf(',');
         if (cityComma >= 0) cityPart = cityPart.substring(0, cityComma).trim();
@@ -77,6 +96,13 @@ public class FrAddressParser implements AddressParser {
                 String cedexVal = cedexMatcher.group().trim();
                 tokens.add(token(TokenType.CEDEX, cedexVal));
                 cityPart = cityPart.substring(0, cedexMatcher.start()).trim();
+            }
+        }
+
+        if (!cityPart.isEmpty()) {
+            Matcher selfRefMatcher = TRAILING_SELF_REFERENCE.matcher(cityPart);
+            if (selfRefMatcher.find()) {
+                cityPart = cityPart.substring(0, selfRefMatcher.start()).trim();
             }
         }
 

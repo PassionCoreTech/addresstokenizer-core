@@ -28,6 +28,9 @@ import org.springframework.stereotype.Component;
 import io.passioncore.addresstokenizer.model.AddressToken;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
+import io.passioncore.addresstokenizer.parser.support.HouseNumberExtractor;
+import io.passioncore.addresstokenizer.parser.support.LeadingNameNoiseStripper;
+import io.passioncore.addresstokenizer.parser.support.NewlineFallbackSplitter;
 
 /**
  * German address tokenizer. House number comes AFTER street name.
@@ -56,8 +59,9 @@ public class DeAddressParser implements AddressParser {
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
         String addr = raw.trim().replaceAll("\\s+", " ");
+        addr = LeadingNameNoiseStripper.strip(addr);
 
-        String[] parts = addr.split(",", 2);
+        String[] parts = NewlineFallbackSplitter.split(addr, 2);
         String streetPart = parts[0].trim();
         String cityPart   = parts.length > 1 ? parts[1].trim() : "";
 
@@ -84,11 +88,10 @@ public class DeAddressParser implements AddressParser {
             }
         }
 
-        Matcher houseMatcher = HOUSE_NO_SUFFIX.matcher(streetPart);
-        if (houseMatcher.find()) {
-            String houseNo = houseMatcher.group(1).trim();
-            tokens.add(token(TokenType.HOUSE_NO, houseNo));
-            streetPart = streetPart.substring(0, houseMatcher.start()).trim();
+        HouseNumberExtractor.Result houseResult = HouseNumberExtractor.extractTrailing(streetPart, HOUSE_NO_SUFFIX);
+        if (houseResult.houseNo() != null) {
+            tokens.add(token(TokenType.HOUSE_NO, houseResult.houseNo()));
+            streetPart = houseResult.remaining();
         }
 
         Matcher stMatcher = STREET_TYPE.matcher(streetPart);

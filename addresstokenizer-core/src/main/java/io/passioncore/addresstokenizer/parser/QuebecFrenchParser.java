@@ -62,6 +62,25 @@ public class QuebecFrenchParser {
     private static final Pattern PROVINCE =
         Pattern.compile("(?i)\\b(QC|PQ|AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|SK|YT)\\b");
 
+    // Redundant self-reference to this parser's own country -- not real city content. Same bug
+    // class plan 029 fixed in five other parsers (US/UK/AU/CA-English/BR); this parser is a
+    // distinct class from CaAddressParser, invoked only by delegation, and was missed by that
+    // sweep (docs/plans/046). Requires real content before it -- never strips "CANADA"/"CA" down
+    // to nothing when that's all there is.
+    private static final Pattern TRAILING_SELF_REFERENCE =
+        Pattern.compile("(?i)^(.*\\S)\\s+(?:CANADA|CA)$");
+
+    // Real French street-type keyword appearing anywhere in a line -- used to find where the
+    // street actually starts when a non-address line (e.g. a bank reference/tracking number)
+    // precedes it (docs/plans/046). Same vocabulary as FR_STREET's type alternation, but matched
+    // as a standalone find rather than requiring the full house-number+type+name structure.
+    private static final Pattern STREET_TYPE_WORD = Pattern.compile(
+        "(?i)\\b(RUE|BOUL(?:EVARD)?|BLVD|AV(?:E(?:NUE)?)?|CHEMIN|ROUTE"
+        + "|RANG|MONTEE|COTE|RUELLE|IMPASSE|PLACE|CROISSANT|CARRE)\\b"
+    );
+
+    private static final Pattern LEADING_DIGIT = Pattern.compile("^\\d");
+
     public ParsedAddress parse(String raw, QuebecFrenchDetector.DetectionResult detection) {
         return doParse(raw);
     }
@@ -75,14 +94,30 @@ public class QuebecFrenchParser {
         String addr = raw.trim().toUpperCase().replaceAll("\\s{2,}", " ");
 
         String[] lines = addr.split("[,\\n\\r]");
+
+        // Skip past any leading line(s) that don't look like the start of real street content --
+        // e.g. a bank reference/tracking-number line prepended before the actual address
+        // (docs/plans/046). A line qualifies as the street start if it leads with a digit (covers
+        // both the bare-house-number 2-line shape below AND an ordinary "<number> <street>"
+        // single-line shape that doesn't happen to contain a recognised French keyword -- e.g.
+        // an English street type) or itself contains a real French street-type keyword anywhere.
+        // Never advances past the last line -- a genuinely unrecognisable address still falls
+        // back to treating line 0 as the street, same as before this fix.
+        int streetStart = 0;
+        while (streetStart < lines.length - 1
+                && !LEADING_DIGIT.matcher(lines[streetStart].trim()).find()
+                && !STREET_TYPE_WORD.matcher(lines[streetStart]).find()) {
+            streetStart++;
+        }
+
         String streetLine;
         String municipalityLine;
-        if (lines.length > 1 && lines[0].trim().matches("\\d+[A-Za-z]?")) {
-            streetLine       = lines[0].trim() + " " + lines[1].trim();
-            municipalityLine = lines.length > 2 ? joinFrom(lines, 2).trim() : "";
+        if (lines.length > streetStart + 1 && lines[streetStart].trim().matches("\\d+[A-Za-z]?")) {
+            streetLine       = lines[streetStart].trim() + " " + lines[streetStart + 1].trim();
+            municipalityLine = lines.length > streetStart + 2 ? joinFrom(lines, streetStart + 2).trim() : "";
         } else {
-            streetLine       = lines[0].trim();
-            municipalityLine = lines.length > 1 ? joinFrom(lines, 1).trim() : "";
+            streetLine       = lines[streetStart].trim();
+            municipalityLine = lines.length > streetStart + 1 ? joinFrom(lines, streetStart + 1).trim() : "";
         }
 
         String remaining = municipalityLine;
@@ -110,6 +145,11 @@ public class QuebecFrenchParser {
         if (provMatcher.find()) {
             tokens.add(tok(TokenType.STATE_CODE, provMatcher.group(1)));
             remaining = remaining.substring(0, provMatcher.start()).trim();
+        }
+
+        Matcher selfRefMatcher = TRAILING_SELF_REFERENCE.matcher(remaining);
+        if (selfRefMatcher.matches()) {
+            remaining = selfRefMatcher.group(1).trim();
         }
 
         if (!remaining.isBlank()) {

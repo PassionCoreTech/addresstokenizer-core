@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import io.passioncore.addresstokenizer.detector.CityCountryLookup;
+import io.passioncore.addresstokenizer.detector.CountryDetector;
 import io.passioncore.addresstokenizer.detector.CountryDetectorInterface;
 import io.passioncore.addresstokenizer.healer.AddressHealer;
 import io.passioncore.addresstokenizer.model.AddressToken;
@@ -38,7 +40,15 @@ import io.passioncore.addresstokenizer.model.NormalizationResult;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
 import io.passioncore.addresstokenizer.parser.AddressParser;
+import io.passioncore.addresstokenizer.parser.AuAddressParser;
+import io.passioncore.addresstokenizer.parser.CaAddressParser;
+import io.passioncore.addresstokenizer.parser.DeAddressParser;
+import io.passioncore.addresstokenizer.parser.FrAddressParser;
 import io.passioncore.addresstokenizer.parser.GenericAddressParser;
+import io.passioncore.addresstokenizer.parser.QuebecFrenchDetector;
+import io.passioncore.addresstokenizer.parser.QuebecFrenchParser;
+import io.passioncore.addresstokenizer.parser.UkAddressParser;
+import io.passioncore.addresstokenizer.parser.UsAddressParser;
 import io.passioncore.addresstokenizer.utils.NormalizationUtil;
 
 /**
@@ -102,6 +112,38 @@ public class AddressTokenizer implements AddressParsingService {
                 .collect(Collectors.toMap(AddressParser::countryCode, p -> p));
     }
 
+    /**
+     * Constructs a fully-wired {@code AddressTokenizer} with plain {@code new} calls — no
+     * Spring container required. Mirrors the manual wiring shown in
+     * {@code addresstokenizer-core/README.md}'s "Without Spring" section exactly (same
+     * parser list, same constructor arguments), so the two stay one source of truth: update
+     * both together if a new Core parser is added.
+     */
+    public static AddressTokenizer createDefault() {
+        List<AddressParser> parsers = List.of(
+            new UsAddressParser(),
+            new UkAddressParser(),
+            new DeAddressParser(),
+            new FrAddressParser(),
+            new AuAddressParser(),
+            new CaAddressParser(new QuebecFrenchDetector(), new QuebecFrenchParser())
+        );
+        CountryDetector detector = new CountryDetector(parsers, CityCountryLookup.createDefault());
+        GenericAddressParser fallback = new GenericAddressParser();
+        NormalizationUtil norm = new NormalizationUtil();
+        return new AddressTokenizer(detector, parsers, fallback, norm, null);
+    }
+
+    /**
+     * ISO 3166-1 alpha-2 codes this instance has a dedicated {@link AddressParser} for.
+     * Benchmark/regression code (e.g. plan 040's SWIFT gauntlet runner) should call this
+     * instead of hardcoding a country list, so classification always reflects what's
+     * actually wired up rather than a copy that can silently drift as parsers are added.
+     */
+    public Set<String> supportedCountries() {
+        return Set.copyOf(parsers.keySet());
+    }
+
     public ParsedAddress parseLines(List<String> rawLines) {
         NormalizationResult normalized = norm.toSwiftAsciiLines(rawLines);
         String work = normalized.value();
@@ -113,6 +155,7 @@ public class AddressTokenizer implements AddressParsingService {
         // PO Box detection
         AddressToken poBoxToken = null;
         String rawJoined = String.join("\n", rawLines);
+        String normalizedFull = work;
         Matcher poMatcher = PO_BOX.matcher(work);
         if (poMatcher.find()) {
             String boxNum   = poMatcher.group(1);
@@ -149,7 +192,7 @@ public class AddressTokenizer implements AddressParsingService {
         List<AddressToken> merged = new ArrayList<>(parsed.tokens().size() + 1);
         merged.add(poBoxToken);
         merged.addAll(parsed.tokens());
-        return tokensToFields(rawJoined, parsed.countryCode(), conf, merged);
+        return tokensToFields(normalizedFull, parsed.countryCode(), conf, merged);
     }
 
     /**

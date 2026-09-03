@@ -22,14 +22,14 @@ Maven:
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
 Gradle:
 
 ```groovy
-implementation 'io.passioncore:addresstokenizer-core:0.4.0'
+implementation 'io.passioncore:addresstokenizer-core:0.5.0'
 ```
 
 No extra configuration needed — Spring Boot picks up `AddressTokenizerAutoConfiguration` automatically via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
@@ -239,7 +239,7 @@ mvn install -DskipTests
 
 ## API stability
 
-This library is at **v0.4.0** — early release.
+This library is at **v0.5.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
 v0.4.0 restructures `ParsedAddress`'s JSON output (flat fields, `tokens`, and
