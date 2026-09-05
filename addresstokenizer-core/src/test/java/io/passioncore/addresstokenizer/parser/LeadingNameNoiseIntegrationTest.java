@@ -25,7 +25,7 @@ import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
 
 /**
- * Regression pins for docs/plans/045.02: a leading recipient-name segment (with or without a
+ * Regression pins: a leading recipient-name segment (with or without a
  * salutation) used to leak into {@code STREET_NAME} or block a {@code ^}-anchored
  * {@code HOUSE_NO} pattern entirely, across every Core country parser. Fixed via the shared
  * {@code LeadingNameNoiseStripper} (see its own unit tests for the stripping-rule coverage) — this

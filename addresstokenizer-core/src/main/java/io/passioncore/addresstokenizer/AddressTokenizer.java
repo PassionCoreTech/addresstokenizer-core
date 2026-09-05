@@ -136,7 +136,7 @@ public class AddressTokenizer implements AddressParsingService {
 
     /**
      * ISO 3166-1 alpha-2 codes this instance has a dedicated {@link AddressParser} for.
-     * Benchmark/regression code (e.g. plan 040's SWIFT gauntlet runner) should call this
+     * Benchmark/regression code (e.g. a SWIFT gauntlet runner) should call this
      * instead of hardcoding a country list, so classification always reflects what's
      * actually wired up rather than a copy that can silently drift as parsers are added.
      */

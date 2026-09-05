@@ -174,7 +174,7 @@ public class CaAddressParser implements AddressParser {
         // role was already stripped out upstream by AddressTokenizer's PO Box detection,
         // leaving just "Victoria, BC V8W 9V6" -> "Victoria" here. The lone leftover is the
         // city, not a street; without this, it falls into the streetLine branch below and
-        // no CITY token is ever produced (plan 050).
+        // no CITY token is ever produced.
         //
         // Guarded by shape, not just count: a genuinely street-only address with no city
         // at all (e.g. "8551 GILBERT RD\nON L4B 3P8", newline counts as a delimiter too)

@@ -66,8 +66,8 @@ public class AuAddressParser implements AddressParser {
             "Parade|Pde|Circuit|Cct|Boulevard|Blvd|Highway|Hwy|Grove|Gve|" +
             "Rise|Row|Walk|Loop|Link|Esplanade|Esp|Quay|Mall)\\b\\.?");
 
-    // Redundant self-references to this parser's own country -- not real city names.
-    // See docs/plans/029 for the bug class this guards against.
+    // Redundant self-references to this parser's own country -- not real city names,
+    // and would otherwise be mislabeled as CITY.
     private static final Set<String> SELF_REFERENCE = Set.of("AU", "AUSTRALIA");
 
     @Override public String postalCodePattern() { return STATE_POSTCODE.pattern(); }

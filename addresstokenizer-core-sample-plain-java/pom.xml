@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>io.passioncore</groupId>
+		<artifactId>addresstokenizer-core-parent</artifactId>
+		<version>0.6.0</version>
+	</parent>
+
+	<artifactId>addresstokenizer-core-sample-plain-java</artifactId>
+	<name>addresstokenizer-core-sample-plain-java</name>
+	<url>https://github.com/PassionCoreTech/addresstokenizer-core</url>
+
+	<scm>
+		<connection>scm:git:https://github.com/PassionCoreTech/addresstokenizer-core.git</connection>
+		<developerConnection>scm:git:https://github.com/PassionCoreTech/addresstokenizer-core.git</developerConnection>
+		<url>https://github.com/PassionCoreTech/addresstokenizer-core</url>
+		<tag>HEAD</tag>
+	</scm>
+
+	<developers>
+		<developer>
+			<id>passioncore</id>
+			<name>PassionCore Technologies Inc.</name>
+			<email>dev@passioncore.io</email>
+			<organization>PassionCore Technologies Inc.</organization>
+			<organizationUrl>https://passioncore.io</organizationUrl>
+		</developer>
+	</developers>
+
+	<licenses>
+		<license>
+			<name>Apache License, Version 2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<description>
+		Reference project for embedding addresstokenizer-core (free tier) into a project with
+		no Spring container: a reusable AddressParsingClient wrapper class meant to be copied
+		into your own project, plus an optional thin java.net.httpserver web layer on top
+		proving it composes into a plain HTTP stack. Not a Spring Boot app -- see
+		addresstokenizer-core-sample for the Spring Boot REST reference instead.
+	</description>
+
+	<properties>
+		<!-- No Spring Boot application here: nothing for spring-boot:run to launch. -->
+		<spring-boot.run.skip>true</spring-boot.run.skip>
+	</properties>
+
+	<dependencies>
+		<!-- Free tier library: the only runtime dependency this sample needs -->
+		<dependency>
+			<groupId>io.passioncore</groupId>
+			<artifactId>addresstokenizer-core</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- `mvn -pl addresstokenizer-core-sample-plain-java compile exec:java` runs Main
+			     directly: a plain Java main(), not a Spring Boot app, so spring-boot:run
+			     does not apply here. -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.5.0</version>
+				<configuration>
+					<mainClass>io.passioncore.sample.plainjava.Main</mainClass>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

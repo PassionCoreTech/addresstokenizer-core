@@ -25,11 +25,11 @@ import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
 
 /**
- * Regression pin for docs/plans/040.05 / 045.01: {@code UkAddressParser} used to discard any
+ * Regression pin: {@code UkAddressParser} used to discard any
  * address content trailing a matched postcode, so a real ANZ-published address ordering
  * (postcode, then town, then country) produced no {@code CITY} token at all -- the floor
  * descriptor before the postcode got misread as the city instead. Fixed as part of migrating the
- * parser onto the shared {@code parser.support} toolkit (docs/plans/045).
+ * parser onto the shared {@code parser.support} toolkit.
  */
 class UkAddressParserTrailingContentTest {
 

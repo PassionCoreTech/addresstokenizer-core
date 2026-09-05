@@ -25,7 +25,7 @@ import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
 
 /**
- * Regression pins for docs/plans/046: a leading non-numeric reference/tracking-number line (e.g.
+ * Regression pins: a leading non-numeric reference/tracking-number line (e.g.
  * a bank/SWIFT-style ID) confused {@code QuebecFrenchParser}'s street/city line-boundary
  * detection, and the municipality line never stripped a trailing self-referential country name.
  * Root cause and investigation trail recorded in the plan itself.
@@ -61,7 +61,7 @@ class QuebecFrenchParserReferenceNumberTest {
 
     @Test
     void trailingSelfReference_doesNotOverwriteCity() {
-        // Same bug class as plan 029's fix in five other parsers, applied here.
+        // Same bug class already fixed in five other parsers, applied here.
         ParsedAddress r = parser().parse(
             "123 RUE SAINT-DENIS, MONTREAL CANADA", "CA");
 
@@ -86,7 +86,7 @@ class QuebecFrenchParserReferenceNumberTest {
 
     @Test
     void existingTwoLineShape_unaffectedByLineBoundaryChange() {
-        // Regression guard against docs/plans/046's line-boundary fix: the common
+        // Regression guard against the line-boundary fix above: the common
         // "<digit+type+name>\n<city province postal>" shape (already covered elsewhere, e.g.
         // CaAddressParserEdgeCaseTest's CA_EDGE_006) must still resolve identically.
         ParsedAddress r = parser().parse("123 RUE SAINT-DENIS OUEST\nMONTREAL QC H2X 3K1", "CA");

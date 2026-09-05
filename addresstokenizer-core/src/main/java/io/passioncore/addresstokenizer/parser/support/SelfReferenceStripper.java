@@ -24,8 +24,8 @@ import java.util.Set;
 
 /**
  * Strips trailing comma-segments that are just a redundant self-reference to the parser's own
- * country (e.g. a UK address ending in {@code ", UK"} with no real city after it) — see
- * docs/plans/029 for the bug class this guards against. {@code UsAddressParser} and
+ * country (e.g. a UK address ending in {@code ", UK"} with no real city after it).
+ * {@code UsAddressParser} and
  * {@code UkAddressParser} each hand-rolled an identical while-loop for this; this replaces both.
  */
 public final class SelfReferenceStripper {

@@ -43,7 +43,7 @@ class PostalCodeStripperTest {
 
     @Test
     void postcodeMidString_remainingAfterCapturesTrailingContent() {
-        // The docs/plans/040.05 shape: postcode is followed by more real content.
+        // Postcode is followed by more real content.
         StripResult r = PostalCodeStripper.stripLastMatch(
             "55 MARK LANE, THE CORN EXCHANGE, 6TH FLOOR, EC3R 7NE, LONDON, GB", UK_POSTCODE);
 

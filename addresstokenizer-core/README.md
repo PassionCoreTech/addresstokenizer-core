@@ -221,6 +221,16 @@ mvn verify -pl addresstokenizer-core
 mvn install -DskipTests -pl addresstokenizer-core
 ```
 
+## Important use limitation
+
+Address Tokenizer is deterministic for a fixed version and configuration, but
+address data can be incomplete or ambiguous and results may be incorrect. The
+library does not certify postal validity, regulatory compliance, or payment
+acceptance. Address Tokenizer is not affiliated with, endorsed by, or certified
+by Swift. References to Swift, CBPR+, pacs.008, and ISO 20022 describe intended
+mapping capabilities only and do not guarantee message acceptance or compliance.
+See [DISCLAIMER.md](../DISCLAIMER.md).
+
 ## License
 
 Address Tokenizer Core is licensed under the **Apache License, Version 2.0**.

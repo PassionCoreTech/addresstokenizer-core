@@ -36,7 +36,7 @@ import io.passioncore.addresstokenizer.utils.NormalizationUtil;
 
 /**
  * Covers the declared-vs-resolved country conflict penalty added to
- * {@code AddressTokenizer.computeParseConfidence()} (plan 026): when the address's raw
+ * {@code AddressTokenizer.computeParseConfidence()}: when the address's raw
  * text ends in a bare 2-letter code (its own comma segment) that disagrees with the
  * country the pipeline actually resolves, {@code parseConfidence} is penalized -0.10.
  */

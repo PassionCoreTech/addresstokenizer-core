@@ -94,7 +94,7 @@ public class CountryDetector implements CountryDetectorInterface {
     // Explicit country names checked before postal-code patterns.
     // Ordered: longest/most-specific names first to prevent substring shadowing.
     // Package-private (not private): CityCountryLookup also reads this to exclude country
-    // names from city-lookup candidacy -- see plan 040.03.
+    // names from city-lookup candidacy.
     static final Map<String, String> COUNTRY_NAME_HINT = Map.ofEntries(
         Map.entry("UNITED KINGDOM",    "GB"),
         Map.entry("GREAT BRITAIN",     "GB"),

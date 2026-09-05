@@ -34,7 +34,7 @@ import io.passioncore.addresstokenizer.model.TokenType;
  * valid {@code Locale} region, so {@code new Locale.Builder().setRegion(code)} throws
  * {@code IllformedLocaleException}. {@code AddressEnrichmentService.countryDisplayName()}
  * (Pro) already guards against this for token construction; this test locks in the
- * equivalent guard on {@code countryName()} itself, which plan 030's {@code general()}
+ * equivalent guard on {@code countryName()} itself, which {@code general()}
  * JSON view calls directly — a real 500 (HttpMessageNotWritableException) on {@code GET
  * /enrich} was reproduced for an input that resolves country to "UNKNOWN" before this fix.
  */

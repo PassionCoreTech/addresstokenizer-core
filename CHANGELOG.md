@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor versions may contain breaking changes, as noted in the README's
 API Stability section).
 
+## [0.6.0] - 2026-09-05
+
+### Added
+
+- `addresstokenizer-core-sample-plain-java` — new module, first publish. Non-Spring
+  reference: a reusable `AddressParsingClient` wrapper class meant to be copied into your
+  own project, plus an optional thin `java.net.HttpServer` layer on top proving it composes
+  into a plain HTTP stack. Uses `AddressTokenizer.createDefault()`, no Spring container.
+- `TokenType.PHASE` — a new token type alongside the existing `TokenType.BLOCK`, for
+  addressing schemes that distinguish a "Phase N" designator from a block/tower number.
+- `DISCLAIMER.md` at the repository root, packaged alongside `LICENSE` and `NOTICE.md` into
+  `addresstokenizer-core`'s built JAR under `META-INF/`.
+
+### Fixed
+
+- `GenericAddressParser` (the low-confidence fallback used for any country with no dedicated
+  parser) labeled every non-first comma/newline segment `CITY`, producing multiple `CITY`
+  tokens for one address. Now only the last remaining segment is trusted as `CITY`; segments
+  in between (floor, building name, street, district) fall back to `STREET_NAME`.
+
+### Changed
+
+- README's "Disclaimer" section replaced with the fuller "Important use limitation" text
+  (deterministic-parsing caveats, no compliance/certification guarantee), linking to the new
+  `DISCLAIMER.md`. The same section was added to `addresstokenizer-core`'s own README, which
+  didn't have one before.
+
 ## [0.5.0] - 2026-09-02
 
 ### Added
@@ -199,6 +226,7 @@ API Stability section).
   country parsers for US, UK, DE, FR, AU, CA (including Quebec French),
   Spring Boot auto-configuration, `addresstokenizer-core-sample` app.
 
+[0.6.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.6.0
 [0.5.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.5.0
 [0.4.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.4.0
 [0.3.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.3.0

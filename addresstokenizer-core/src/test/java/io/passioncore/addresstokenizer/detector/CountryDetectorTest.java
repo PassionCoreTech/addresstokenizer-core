@@ -33,7 +33,7 @@ import io.passioncore.addresstokenizer.parser.UsAddressParser;
 
 /**
  * Core-only tests for {@link CountryDetector}, covering {@link #detectDeclaredCountryCode}
- * (plan 026) and the equal-length {@code COUNTRY_NAME_HINT} tie-break (plan 036). Broader
+ * and the equal-length {@code COUNTRY_NAME_HINT} tie-break. Broader
  * {@code detect()}/{@code detectInTail()} coverage lives in {@code addresstokenizer-pro}'s
  * {@code CountryDetectorTest} (which exercises the full parser list); this class carries
  * only what needs standalone coverage in this module.
@@ -52,7 +52,7 @@ class CountryDetectorTest {
         // "HONG KONG" (9 chars) appears twice as unrelated proper nouns (the sending
         // organization's name, the building name); "AUSTRALIA" (9 chars) appears once,
         // correctly, as the trailing country declaration. Real-world reported case
-        // (plan 036) that previously resolved to HK at 0.97 confidence. No AU parser is
+        // that previously resolved to HK at 0.97 confidence. No AU parser is
         // registered here -- detect() resolves this via the COUNTRY_NAME_HINT tie-break
         // alone, before any postal-code pattern is even consulted.
         assertThat(detector.detect(
@@ -63,7 +63,7 @@ class CountryDetectorTest {
 
     @Test
     void bareCnTokenWithSixDigitPostalDetectedAsChinaNotIndia() {
-        // Plan 043: China's own 6-digit postal code (no literal "CHINA" word) must not be
+        // China's own 6-digit postal code (no literal "CHINA" word) must not be
         // misread by IN_POSTAL's generic \d{6} fallback -- the "CN" marker right after the
         // postal code must win first.
         assertThat(detector.detect(
@@ -74,7 +74,7 @@ class CountryDetectorTest {
 
     @Test
     void literalChinaWordStillDetectedCorrectly() {
-        // Regression guard: this already worked before plan 043 via COUNTRY_NAME_HINT's
+        // Regression guard: this already worked via COUNTRY_NAME_HINT's
         // "CHINA" entry -- must keep working once the CN-specific checks are added nearby.
         assertThat(detector.detect(
             "LI WEI NO 88 XINHUA ROAD CHAOYANG DISTRICT BEIJING 100000 CHINA"))
@@ -83,7 +83,7 @@ class CountryDetectorTest {
 
     @Test
     void sixDigitPostalWithNoCnMarkerStillDetectedAsIndia() {
-        // Negative case for the plan 043 CN fix: a real Indian PIN code (6 digits, no "CN"
+        // Negative case for the CN fix above: a real Indian PIN code (6 digits, no "CN"
         // token, no literal country name) must still fall through to IN_POSTAL as before.
         assertThat(detector.detect("12 MG Road Bangalore 560001"))
             .isEqualTo("IN");

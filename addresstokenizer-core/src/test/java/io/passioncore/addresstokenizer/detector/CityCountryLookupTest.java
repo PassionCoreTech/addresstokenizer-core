@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Plan 040.03: {@link CityCountryLookup#lookupInAddress} scans trailing word-windows and
+ * {@link CityCountryLookup#lookupInAddress} scans trailing word-windows and
  * returns on the first hit — verifying it against real SWIFT gauntlet inputs found it returning
  * the wrong country when a trailing word (typically the stated country name itself) coincides
  * with an obscure, unrelated real place name elsewhere in the world.
@@ -54,10 +54,10 @@ class CityCountryLookupTest {
 
     @Test
     void doesNotLetTheFirstNameDonaldShadowAnUnrelatedFictionalAddress() {
-        // Plan 040.03 documented this as a residual limitation: "Donald" (as in "Donald Duck")
+        // Documented residual limitation: "Donald" (as in "Donald Duck")
         // was itself a real, obscure town in Victoria, Australia (population 1,469) and
         // Oregon/US (1,001) -- an ordinary first name, not a country name or street-type word,
-        // so 040.03's exclusion sets couldn't catch it. Plan 040.06 closed this not by adding
+        // so the exclusion sets alone couldn't catch it. This was closed not by adding
         // "donald" to a word list (there's no way to enumerate every common word that might
         // coincidentally be a place name) but by regenerating city_countries.tsv with a
         // 10,000-population floor -- both "Donald" rows fall well under it, so the name is
@@ -77,11 +77,11 @@ class CityCountryLookupTest {
 
     @Test
     void shortWordIsTrustedWhenItsRealPlaceIsGenuinelySignificant() {
-        // Plan 040.03 originally excluded every single-word candidate under 4 characters,
+        // This lookup originally excluded every single-word candidate under 4 characters,
         // reasoning "Aba" was an obscure Nigerian town not worth trusting on its own. That
         // premise was wrong -- verified directly against GeoNames population data: "Aba" is
         // Nigeria's third-largest metro area at 1.16 million people, incorrectly excluded only
-        // because it's short. Plan 040.06 replaced the length guard with a population floor on
+        // because it's short. The length guard was replaced with a population floor on
         // city_countries.tsv itself (10,000) -- "Aba" clears it easily and correctly resolves.
         assertThat(lookup.lookupInAddress("SOMETHING ABA")).contains("NG");
     }
@@ -105,7 +105,7 @@ class CityCountryLookupTest {
 
     @Test
     void doesNotLetTheStopWordOfShadowAnUnrelatedPreposition() {
-        // "Of" (Turkey, population 31,951) is exactly the case plan 040.06's own analysis was
+        // "Of" (Turkey, population 31,951) is exactly the case this population floor's own analysis was
         // built around: it comfortably clears the 10,000 population floor on its own, so only
         // the STOP_WORDS name-based exclusion prevents it from resolving here.
         assertThat(lookup.lookupInAddress("A SLICE OF CAKE")).isEmpty();

@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 /**
  * Strips a leading recipient-name segment (e.g. {@code "JOHN SMITH, 126 CUBA AVE..."} or
  * {@code "MR. JOHN SMITH, ..."}) before it can leak into {@code STREET_NAME} or block a
- * {@code ^}-anchored {@code HOUSE_NO} pattern from matching (docs/plans/045.02).
+ * {@code ^}-anchored {@code HOUSE_NO} pattern from matching.
  *
  * <p>Two tiers, deliberately not a single comma/whitespace rule (a comma-only rule breaks when
  * there's no comma, or when a name itself contains one; a whitespace-only rule can't work at all

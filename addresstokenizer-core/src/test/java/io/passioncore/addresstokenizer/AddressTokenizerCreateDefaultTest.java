@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import io.passioncore.addresstokenizer.model.ParsedAddress;
 
 /**
- * Guard test for {@link AddressTokenizer#createDefault()} (plan 039, Option B): confirms the
+ * Guard test for {@link AddressTokenizer#createDefault()}: confirms the
  * factory-built object graph parses the same as the hand-wired graph in
  * {@link CoreOnlyWiringTest}, for every parser {@code createDefault()} registers. If a new
  * Core parser is added to the factory but this test isn't extended to cover it, that's a signal

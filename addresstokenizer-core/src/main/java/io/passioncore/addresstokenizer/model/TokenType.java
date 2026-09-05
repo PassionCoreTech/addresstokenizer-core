@@ -26,6 +26,7 @@ public enum TokenType {
     UNIT,
     FLOOR,
     BLOCK,
+    PHASE,
     NEIGHBORHOOD,
     WARD,
     CITY,

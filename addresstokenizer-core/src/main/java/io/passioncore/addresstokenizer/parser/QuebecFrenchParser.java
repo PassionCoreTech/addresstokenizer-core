@@ -63,16 +63,16 @@ public class QuebecFrenchParser {
         Pattern.compile("(?i)\\b(QC|PQ|AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|SK|YT)\\b");
 
     // Redundant self-reference to this parser's own country -- not real city content. Same bug
-    // class plan 029 fixed in five other parsers (US/UK/AU/CA-English/BR); this parser is a
+    // class already fixed in five other parsers (US/UK/AU/CA-English/BR); this parser is a
     // distinct class from CaAddressParser, invoked only by delegation, and was missed by that
-    // sweep (docs/plans/046). Requires real content before it -- never strips "CANADA"/"CA" down
+    // sweep. Requires real content before it -- never strips "CANADA"/"CA" down
     // to nothing when that's all there is.
     private static final Pattern TRAILING_SELF_REFERENCE =
         Pattern.compile("(?i)^(.*\\S)\\s+(?:CANADA|CA)$");
 
     // Real French street-type keyword appearing anywhere in a line -- used to find where the
     // street actually starts when a non-address line (e.g. a bank reference/tracking number)
-    // precedes it (docs/plans/046). Same vocabulary as FR_STREET's type alternation, but matched
+    // precedes it. Same vocabulary as FR_STREET's type alternation, but matched
     // as a standalone find rather than requiring the full house-number+type+name structure.
     private static final Pattern STREET_TYPE_WORD = Pattern.compile(
         "(?i)\\b(RUE|BOUL(?:EVARD)?|BLVD|AV(?:E(?:NUE)?)?|CHEMIN|ROUTE"
@@ -97,7 +97,7 @@ public class QuebecFrenchParser {
 
         // Skip past any leading line(s) that don't look like the start of real street content --
         // e.g. a bank reference/tracking-number line prepended before the actual address
-        // (docs/plans/046). A line qualifies as the street start if it leads with a digit (covers
+        // A line qualifies as the street start if it leads with a digit (covers
         // both the bare-house-number 2-line shape below AND an ordinary "<number> <street>"
         // single-line shape that doesn't happen to contain a recognised French keyword -- e.g.
         // an English street type) or itself contains a real French street-type keyword anywhere.

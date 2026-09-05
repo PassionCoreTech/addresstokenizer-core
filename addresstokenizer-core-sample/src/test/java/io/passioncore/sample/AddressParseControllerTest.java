@@ -186,7 +186,7 @@ class AddressParseControllerTest {
         }
     }
 
-    // ── /demo/swift-examples endpoint (docs/plans/040.04) ───────────────────
+    // ── /demo/swift-examples endpoint ────────────────────────────────────────
 
     @Nested
     @DisplayName("GET /demo/swift-examples")
@@ -239,12 +239,12 @@ class AddressParseControllerTest {
         }
 
         @Test
-        @DisplayName("Mark Lane (BQA-003): fixed (docs/plans/045.01) — CITY resolves to LONDON")
+        @DisplayName("Mark Lane (BQA-003): fixed — CITY resolves to LONDON")
         void markLaneResolvesCorrectly() throws Exception {
             // Was: UkAddressParser discarded address content after a matched postcode, so
             // "LONDON, GB" (trailing EC3R 7NE here) got dropped before CITY was derived, and
             // "6TH FLOOR" was misread as CITY instead. Fixed by migrating UkAddressParser onto
-            // the shared parser.support toolkit (docs/plans/045), which recovers CITY from text
+            // the shared parser.support toolkit, which recovers CITY from text
             // trailing the postcode instead of silently discarding it.
             mockMvc.perform(get("/demo/swift-examples"))
                     .andExpect(status().isOk())
@@ -261,7 +261,7 @@ class AddressParseControllerTest {
         }
     }
 
-    // ── /demo/edge-cases endpoint (docs/plans/040.03, 040.06) ───────────────
+    // ── /demo/edge-cases endpoint ─────────────────────────────────────────────
 
     @Nested
     @DisplayName("GET /demo/edge-cases")

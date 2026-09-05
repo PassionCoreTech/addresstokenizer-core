@@ -66,8 +66,8 @@ public final class CommaSegmentCityExtractor {
     /** True if {@code segment} looks like a floor/unit marker (e.g. {@code "6TH FLOOR"},
      *  {@code "SUITE 400"}) rather than a plausible city name — a defensive check a parser can
      *  run before trusting a naive last-comma-segment pick as CITY. Kept as reusable
-     *  defense-in-depth; not the mechanism that recovers docs/plans/040.05's actual city (that
-     *  comes from text trailing the postcode, outside this segment list entirely — see
+     *  defense-in-depth; not the mechanism that recovers the actual city when it trails the
+     *  postcode instead, outside this segment list entirely — see
      *  {@code UkAddressParser}'s use of {@link PostalCodeStripper.StripResult#remainingAfter()}). */
     public static boolean looksLikeFloorOrUnitMarker(String segment) {
         return NON_CITY_SHAPE.matcher(segment.trim()).find();

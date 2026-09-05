@@ -69,8 +69,8 @@ public class UsAddressParser implements AddressParser {
             "(?i)\\b(?:Floor|Flr|FL|Level|Lvl)\\s*#?\\s*(\\d+[A-Z]?\\w*)" +
             "|\\b(\\d+(?:st|nd|rd|th)?)\\s+(?:Floor|Flr|Fl)\\b");
 
-    // Redundant self-references to this parser's own country -- not real city names.
-    // See docs/plans/029 for the bug class this guards against.
+    // Redundant self-references to this parser's own country -- not real city names,
+    // and would otherwise be mislabeled as CITY.
     private static final Set<String> SELF_REFERENCE = Set.of("US", "USA", "UNITED STATES");
 
     @Override public String postalCodePattern() { return ZIP.pattern(); }
@@ -88,9 +88,7 @@ public class UsAddressParser implements AddressParser {
         if (zipResult.matchedValue() != null) {
             tokens.add(token(TokenType.POSTAL_CODE, zipResult.matchedValue()));
             // zipResult.remainingAfter() is intentionally not consulted here -- ZIP is the last
-            // element in every US address shape this parser has ever supported, matching the
-            // pre-migration behaviour exactly (docs/plans/045.01: US/DE migration is a pure
-            // refactor, no behaviour change).
+            // element in every US address shape this parser supports.
         }
 
         Matcher stateMatcher = STATE.matcher(remaining);

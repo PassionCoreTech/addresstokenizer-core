@@ -68,7 +68,7 @@ public class AddressParseController {
     );
 
     /** A small curated subset of SWIFT/bank-published ISO 20022 worked examples
-     *  (docs/plans/040.04) — real addresses banks use in their own migration guidance,
+     *  — real addresses banks use in their own migration guidance,
      *  not synthetic test data. */
     private static final List<String> SWIFT_EXAMPLE_ADDRESSES = List.of(
         // Brussels â€” HSBC ISO 20022 guide worked example (BQA-002)
@@ -84,7 +84,7 @@ public class AddressParseController {
 
     private record EdgeCaseResult(String label, String why, String input, ParseResponse result) {}
 
-    /** docs/plans/040.03 / 040.06: CityCountryLookup (CountryDetector's last-resort fallback,
+    /** CityCountryLookup (CountryDetector's last-resort fallback,
      *  reached only when no postal-code pattern or country-name-hint text matches at all) used
      *  to scan raw text for a known city name with no disambiguation, so an ordinary common word
      *  that coincidentally collided with an obscure real place name elsewhere in the world could
@@ -95,7 +95,7 @@ public class AddressParseController {
         new EdgeCase(
             "Common first name coincidentally a real (but tiny) place — no longer trusted",
             "\"Donald\" is a real town in both Victoria, Australia (pop. 1,469) and Oregon, US " +
-            "(pop. 1,001) — before docs/plans/040.06's population floor, CityCountryLookup's " +
+            "(pop. 1,001) — before the current population floor, CityCountryLookup's " +
             "last-resort fallback picked the higher-population one (AU) with no other evidence " +
             "at all, so any text ending in this ordinary first name misresolved the country. " +
             "city_countries.tsv now drops any name whose population falls under 10,000, so " +
@@ -106,7 +106,7 @@ public class AddressParseController {
 
         new EdgeCase(
             "Short word correctly trusted once it's a genuinely significant place",
-            "The flip side of the same fix: docs/plans/040.03 originally excluded every " +
+            "The flip side of the same fix: this lookup originally excluded every " +
             "single-word candidate under 4 characters, assuming a short word was too unreliable " +
             "to trust — but \"Aba\" is Nigeria's third-largest metro area at 1.16 million people, " +
             "excluded only because it's short. Replacing that length guard with the population " +
@@ -161,7 +161,7 @@ public class AddressParseController {
         description = """
             Parses 3 real addresses taken from public bank ISO 20022 migration guides
             (Brussels/HSBC, London/ANZ, and Citi's CUBA AVE sanctions-screening
-            false-positive example — see docs/plans/040.04). Address Tokenizer is not
+            false-positive example). Address Tokenizer is not
             SWIFT-certified or endorsed by these banks; this demonstrates parsing
             against publicly published examples, not compliance with any bank's or
             SWIFT's own validation rules.
@@ -185,7 +185,7 @@ public class AddressParseController {
         description = """
             A curated set of addresses that exercise boundary conditions in
             CityCountryLookup, CountryDetector's last-resort country-detection
-            fallback (docs/plans/040.03, 040.06) — reached only when no postal-code
+            fallback — reached only when no postal-code
             pattern or country-name-hint text matches at all.
             """,
         responses = @ApiResponse(responseCode = "200", description = "Edge-case results")
@@ -203,7 +203,7 @@ public class AddressParseController {
 
     // ── Response builder ────────────────────────────────────────────────────
 
-    /** Shared {@code /parse} response contract (docs/plans/032.03) — same shape Pro's
+    /** Shared {@code /parse} response contract — same shape Pro's
      *  {@code addresstokenizer-pro-sample} returns from its own {@code /parse}. */
     private record ParseResponse(String raw, List<AddressToken> tokens, ParserDiagnosticsView diagnostics) {}
 

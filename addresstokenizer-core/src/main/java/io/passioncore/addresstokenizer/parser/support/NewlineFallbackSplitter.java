@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  * line (tax-ID line, street line, postal+city line, phone line) with no comma anywhere in the
  * whole block -- {@code AddressTokenizer.parseLines()} only flattens embedded newlines to spaces
  * for its own country-*detection* step, never for the string it hands to the country-specific
- * *parser* (docs/plans/049), so every parser that segments its input on comma alone is equally
+ * *parser*, so every parser that segments its input on comma alone is equally
  * exposed to this shape.
  */
 public final class NewlineFallbackSplitter {

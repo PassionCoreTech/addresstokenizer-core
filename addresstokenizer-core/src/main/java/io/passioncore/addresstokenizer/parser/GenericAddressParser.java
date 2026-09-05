@@ -46,12 +46,22 @@ public class GenericAddressParser implements AddressParser {
     @Override
     public ParsedAddress parse(String raw, String country) {
         List<AddressToken> tokens = new ArrayList<>();
-        String[] parts = raw.split("[,\\n]+");
-        int len = parts.length;
 
-        for (int i = 0; i < len; i++) {
-            String part = parts[i].trim();
-            if (part.isBlank()) continue;
+        List<String> parts = new ArrayList<>();
+        for (String rawPart : raw.split("[,\\n]+")) {
+            String part = rawPart.trim();
+            if (part.isBlank() || part.equalsIgnoreCase(country)) {
+                // Blank segments are dropped, and a bare trailing country code is dropped too --
+                // AddressTokenizer already adds a COUNTRY_CODE token separately
+                // (withCountryCodeToken) -- don't also mislabel this as CITY.
+                continue;
+            }
+            parts.add(part);
+        }
+        int lastIndex = parts.size() - 1;
+
+        for (int i = 0; i < parts.size(); i++) {
+            String part = parts.get(i);
 
             Matcher postalMatcher = POSTAL_GENERIC.matcher(part);
             if (postalMatcher.find()) {
@@ -66,13 +76,15 @@ public class GenericAddressParser implements AddressParser {
                 }
             } else if (i == 0) {
                 tokens.add(new AddressToken(TokenType.STREET_NAME, part));
-            } else if (part.equalsIgnoreCase(country)) {
-                // AddressTokenizer already adds a COUNTRY_CODE token separately
-                // (withCountryCodeToken) -- don't also mislabel this as CITY.
             } else if (CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker(part)) {
                 tokens.add(new AddressToken(TokenType.UNIT, part));
-            } else {
+            } else if (i == lastIndex) {
+                // Only the last remaining segment is trusted as CITY -- an address has exactly
+                // one city, so every segment in between (building name, street, district, ...)
+                // must not also be labeled CITY.
                 tokens.add(new AddressToken(TokenType.CITY, part));
+            } else {
+                tokens.add(new AddressToken(TokenType.STREET_NAME, part));
             }
         }
 

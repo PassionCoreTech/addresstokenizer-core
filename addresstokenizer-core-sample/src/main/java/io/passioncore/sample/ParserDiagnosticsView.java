@@ -32,7 +32,7 @@ import io.passioncore.addresstokenizer.model.TraceLog;
 
 /**
  * Projection of {@link ParseDiagnostics} used by the shared {@code /parse} endpoint
- * contract (docs/plans/032.03). Never {@code null} in a {@code /parse} response, on
+ * contract. Never {@code null} in a {@code /parse} response, on
  * either tier — Core populates only {@link #confidence()}/{@link #needsReview()} via
  * {@link #fromCore}; every other field stays absent ({@code NON_NULL}) since it
  * requires Pro-only enrichment Core doesn't have.

@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  * <p>Loaded from {@code city_countries.tsv} (bundled in the core JAR), which is derived
  * from GeoNames {@code cities500.txt} — one row per ASCII city name, keeping the country
  * with the highest population for that name, and dropping any name whose winning
- * population falls below a 10,000 floor (docs/plans/040.06 — regenerate via
+ * population falls below a 10,000 floor (regenerate via
  * {@code scripts/regenerate-city-countries-data.sh}). ~41 k entries, ~540 KB on disk.</p>
  *
  * <p>Used by {@link CountryDetector} as the final fallback after all regex signals fail.</p>
@@ -62,7 +62,7 @@ public class CityCountryLookup {
     private static final String DEFAULT_RESOURCE_PATH = "data/city_countries.tsv";
 
     /**
-     * Candidate words/phrases excluded from city-lookup matching (plan 040.03). Verified via
+     * Candidate words/phrases excluded from city-lookup matching. Verified via
      * two real, wrong-country lookups: {@code lookupInAddress("...MONTREAL CANADA")} returned
      * {@code MX} because {@code "Canada"} is also a real, obscure town in Mexico and is tried
      * (and matched) before {@code "Montreal"}; {@code lookupInAddress("...UNITED STATES OF
@@ -82,7 +82,7 @@ public class CityCountryLookup {
      * (anything ending in "...GOLDENPARIS STREET", split away from its house number). This list
      * is necessarily incomplete — it covers verified failures, not every possible coincidental
      * collision. The complementary, more general defense is {@code city_countries.tsv}'s own
-     * 10,000-population floor (docs/plans/040.06) — a former length-based guard here was removed
+     * 10,000-population floor — a former length-based guard here was removed
      * once that floor shipped, since it was found to reject some genuinely significant places for
      * the wrong reason (e.g. {@code "Aba"}, Nigeria's third-largest city at 1.16M people, purely
      * because it's 3 characters).</p>
@@ -93,7 +93,7 @@ public class CityCountryLookup {
 
     /**
      * Common English function words (articles, conjunctions, prepositions, auxiliary verbs)
-     * excluded from city-lookup matching (plan 040.03 fold-in). A systematic scan of
+     * excluded from city-lookup matching. A systematic scan of
      * {@code city_countries.tsv} against a standard English stop-word list found 16 real
      * collisions — e.g. {@code "of"} → TR (population 31,951, so it survives 040.06's population
      * floor and needs this name-based exclusion specifically), {@code "over"} → GB,
@@ -219,7 +219,7 @@ public class CityCountryLookup {
 
     /** Looks up {@code phrase} in the city index unless it's an excluded/unreliable candidate —
      *  see {@link #EXCLUDED_CANDIDATES}. Every remaining entry already cleared
-     *  {@code city_countries.tsv}'s own population floor (docs/plans/040.06), so no separate
+     *  {@code city_countries.tsv}'s own population floor, so no separate
      *  short-word guard is needed here any more. */
     private String lookupCandidate(String phrase) {
         String lower = phrase.toLowerCase();

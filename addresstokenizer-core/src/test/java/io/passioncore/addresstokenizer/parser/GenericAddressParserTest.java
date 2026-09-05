@@ -67,6 +67,24 @@ class GenericAddressParserTest {
     }
 
     @Test
+    void multiSegmentAddress_onlyLastSegmentIsCity() {
+        // Regression: every non-first segment (floor, building name, street, district) was
+        // blindly labeled CITY, producing multiple CITY tokens for one address -- an address
+        // has exactly one city. Only the final segment should be trusted as CITY.
+        ParsedAddress result = parser.parse(
+                "FLAT 25, 12/F, ACACIA BUILDING, 150 KENNEDY ROAD, WAN CHAI, HONG KONG", "HK");
+
+        assertThat(result.tokens()).containsExactly(
+            new AddressToken(TokenType.STREET_NAME, "FLAT 25"),
+            new AddressToken(TokenType.STREET_NAME, "12/F"),
+            new AddressToken(TokenType.STREET_NAME, "ACACIA BUILDING"),
+            new AddressToken(TokenType.STREET_NAME, "150 KENNEDY ROAD"),
+            new AddressToken(TokenType.STREET_NAME, "WAN CHAI"),
+            new AddressToken(TokenType.CITY, "HONG KONG")
+        );
+    }
+
+    @Test
     void bareTrailingCountryCode_notLabeledAsCity() {
         // AddressTokenizer already adds a COUNTRY_CODE token separately (withCountryCodeToken);
         // the generic fallback must not also emit the same value mislabeled as CITY.

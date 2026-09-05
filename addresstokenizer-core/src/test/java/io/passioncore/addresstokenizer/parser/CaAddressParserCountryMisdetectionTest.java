@@ -36,8 +36,8 @@ import io.passioncore.addresstokenizer.utils.NormalizationUtil;
  * word "CANADA" gets wrongly dispatched to {@link CaAddressParser} — which cannot parse
  * a US-format address and corrupts its output.
  *
- * <p>This test pins down exactly what survives that corruption, for
- * {@code docs/plans/028} (Decision 1): {@code POSTAL_CODE} does <b>not</b> survive.
+ * <p>This test pins down exactly what survives that corruption:
+ * {@code POSTAL_CODE} does <b>not</b> survive.
  * {@link CaAddressParser}'s postal-code regexes only recognise the Canadian
  * {@code A1A 1A1}/{@code A1A} shapes, so a US 5-digit ZIP ("10118") never matches and no
  * {@code POSTAL_CODE} token is emitted at all. Worse, because {@code "NY"} is not a

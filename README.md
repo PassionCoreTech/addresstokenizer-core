@@ -22,14 +22,14 @@ Maven:
 <dependency>
     <groupId>io.passioncore</groupId>
     <artifactId>addresstokenizer-core</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
 </dependency>
 ```
 
 Gradle:
 
 ```groovy
-implementation 'io.passioncore:addresstokenizer-core:0.5.0'
+implementation 'io.passioncore:addresstokenizer-core:0.6.0'
 ```
 
 No extra configuration needed — Spring Boot picks up `AddressTokenizerAutoConfiguration` automatically via `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
@@ -245,10 +245,11 @@ mvn install -DskipTests
 |---|---|
 | `addresstokenizer-core` | The library JAR — add this as a dependency |
 | `addresstokenizer-core-sample` | Runnable Spring Boot app showing usage via REST endpoint |
+| `addresstokenizer-core-sample-plain-java` | Non-Spring reference: `AddressParsingClient` wrapper, plus an optional plain `java.net.HttpServer` layer on top |
 
 ## API stability
 
-This library is at **v0.5.0** — early release.
+This library is at **v0.6.0** — early release.
 
 The parsing engine is production-quality for the supported countries.
 v0.4.0 restructures `ParsedAddress`'s JSON output (flat fields, `tokens`, and
@@ -301,9 +302,12 @@ For commercial Pro licensing (gazetteer enrichment, ISO 20022 output, SLA suppor
 dev@passioncore.io
 ```
 
-## Disclaimer
+## Important use limitation
 
-This library is not affiliated with, endorsed by, or certified by S.W.I.F.T. SCRL ("SWIFT").
-"SWIFT", "CBPR+", and "pacs.008" are trademarks or service marks of S.W.I.F.T. SCRL or its affiliates.
-This library structures postal address data to align with the ISO 20022 pacs.008 CBPR+ field-format requirements.
-It is not a substitute for official SWIFT-certified validation tooling or network connectivity.
+Address Tokenizer is deterministic for a fixed version and configuration, but
+address data can be incomplete or ambiguous and results may be incorrect. The
+library does not certify postal validity, regulatory compliance, or payment
+acceptance. Address Tokenizer is not affiliated with, endorsed by, or certified
+by Swift. References to Swift, CBPR+, pacs.008, and ISO 20022 describe intended
+mapping capabilities only and do not guarantee message acceptance or compliance.
+See [DISCLAIMER.md](DISCLAIMER.md).

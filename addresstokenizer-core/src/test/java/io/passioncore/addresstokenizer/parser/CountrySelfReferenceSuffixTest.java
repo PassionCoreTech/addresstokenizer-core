@@ -25,7 +25,7 @@ import io.passioncore.addresstokenizer.model.ParsedAddress;
 import io.passioncore.addresstokenizer.model.TokenType;
 
 /**
- * Regression pins for docs/plans/029: {@code UsAddressParser}, {@code UkAddressParser},
+ * Regression pins: {@code UsAddressParser}, {@code UkAddressParser},
  * and {@code AuAddressParser} each naively took the last comma-segment as {@code CITY}
  * when no postal/state token had already been matched and stripped, so a trailing,
  * redundant self-reference to the parser's own country (no state/ZIP/postcode present to

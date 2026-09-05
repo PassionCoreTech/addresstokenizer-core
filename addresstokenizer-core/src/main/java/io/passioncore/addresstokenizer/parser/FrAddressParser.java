@@ -59,8 +59,8 @@ public class FrAddressParser implements AddressParser {
 
     // Trailing self-reference to this parser's own country on the postal+city line (e.g. a
     // real bank fixture's "13340 MARSEILLE FRANCE") -- not part of the city name itself.
-    // See docs/plans/029 for the bug class this mirrors (US/UK strip the same class of noise
-    // from their own comma segments via SELF_REFERENCE).
+    // Mirrors the same class of noise US/UK strip from their own comma segments via
+    // SELF_REFERENCE.
     private static final Pattern TRAILING_SELF_REFERENCE =
         Pattern.compile("(?i)(?:^|\\s+)(?:FRANCE|FR)$");
 

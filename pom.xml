@@ -12,7 +12,7 @@
 
 	<groupId>io.passioncore</groupId>
 	<artifactId>addresstokenizer-core-parent</artifactId>
-	<version>0.5.0</version>
+	<version>0.6.0</version>
 	<packaging>pom</packaging>
 	<name>Address Tokenizer Core — Parent</name>
 	<description>Parent POM for the open-source Address Tokenizer Core library (Apache-2.0)</description>
@@ -51,6 +51,7 @@
 	<modules>
 		<module>addresstokenizer-core</module>
 		<module>addresstokenizer-core-sample</module>
+		<module>addresstokenizer-core-sample-plain-java</module>
 	</modules>
 
 	<properties>
