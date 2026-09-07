@@ -104,10 +104,15 @@ public class UsAddressParser implements AddressParser {
             remaining = remaining.substring(0, stateStart).trim().replaceAll("[,\\s]+$", "");
         }
 
-        List<String> lines = SelfReferenceStripper.strip(
-            Arrays.asList(NewlineFallbackSplitter.split(remaining, 0)), SELF_REFERENCE);
+        List<String> partsBeforeStrip = Arrays.asList(NewlineFallbackSplitter.split(remaining, 0));
+        List<String> lines = SelfReferenceStripper.strip(partsBeforeStrip, SELF_REFERENCE);
+        // A self-reference strip down to exactly 1 remaining segment (e.g. "Chicago, USA" ->
+        // "Chicago") already proved that segment was followed by this parser's own country name
+        // -- safe to treat it as CITY. A bare single-segment input that never had a self
+        // reference to strip (e.g. a lone street name) stays ambiguous and is left alone.
+        boolean selfReferenceStripped = lines.size() < partsBeforeStrip.size();
         CommaSegmentCityExtractor.Result cityResult =
-            CommaSegmentCityExtractor.extractLastAsCity(lines, false);
+            CommaSegmentCityExtractor.extractLastAsCity(lines, false, selfReferenceStripped);
         if (cityResult.city() != null) {
             tokens.add(token(TokenType.CITY, cityResult.city().toUpperCase()));
         }

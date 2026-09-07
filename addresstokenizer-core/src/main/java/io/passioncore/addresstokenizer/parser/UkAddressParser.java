@@ -131,8 +131,13 @@ public class UkAddressParser implements AddressParser {
             streetLine = sb.toString();
         } else {
             List<String> segments = SelfReferenceStripper.strip(partList, SELF_REFERENCE);
+            // A self-reference strip down to exactly 1 remaining segment (e.g. "London, United
+            // Kingdom" -> "London") already proved that segment was followed by this parser's
+            // own country name -- safe to treat it as CITY. A bare single-segment input that
+            // never had a self reference to strip (e.g. a lone street name) stays ambiguous.
+            boolean selfReferenceStripped = segments.size() < partList.size();
             CommaSegmentCityExtractor.Result cityResult =
-                CommaSegmentCityExtractor.extractLastAsCity(segments, true);
+                CommaSegmentCityExtractor.extractLastAsCity(segments, true, selfReferenceStripped);
             if (cityResult.city() != null) {
                 tokens.add(token(TokenType.CITY, cityResult.city()));
             }

@@ -68,6 +68,47 @@ class CommaSegmentCityExtractorTest {
     }
 
     @Test
+    void singleSegment_defaultOverload_neverTreatsItAsCity() {
+        // The 2-arg overload must keep its existing behavior unchanged -- singleSegmentIsCity
+        // defaults to false, matching singleSegment_noCity above.
+        Result r = CommaSegmentCityExtractor.extractLastAsCity(List.of("London"), true);
+
+        assertThat(r.city()).isNull();
+        assertThat(r.streetLine()).isEqualTo("London");
+    }
+
+    @Test
+    void singleSegment_withSingleSegmentIsCityTrue_extractsCity() {
+        // When the caller already confirmed (via SelfReferenceStripper) that this lone segment
+        // is what remained after stripping a trailing self-reference country name, it's safe to
+        // treat it as CITY rather than leftover street text.
+        Result r = CommaSegmentCityExtractor.extractLastAsCity(List.of("London"), true, true);
+
+        assertThat(r.city()).isEqualTo("London");
+        assertThat(r.neighborhood()).isNull();
+        assertThat(r.streetLine()).isEmpty();
+    }
+
+    @Test
+    void singleBlankSegment_withSingleSegmentIsCityTrue_stillNoCity() {
+        Result r = CommaSegmentCityExtractor.extractLastAsCity(List.of("  "), true, true);
+
+        assertThat(r.city()).isNull();
+        assertThat(r.streetLine()).isEmpty();
+    }
+
+    @Test
+    void twoSegments_singleSegmentIsCityTrueIsIgnored() {
+        // singleSegmentIsCity only matters for the len==1 case -- normal 2+-segment extraction
+        // is unaffected regardless of its value.
+        Result r = CommaSegmentCityExtractor.extractLastAsCity(
+            List.of("350 Fifth Avenue", "New York"), true, true);
+
+        assertThat(r.city()).isEqualTo("New York");
+        assertThat(r.streetLine()).isEqualTo("350 Fifth Avenue");
+    }
+
+    @Test
     void looksLikeFloorOrUnitMarker_recognisesOrdinalFloor() {
         assertThat(CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker("6TH FLOOR")).isTrue();
         assertThat(CommaSegmentCityExtractor.looksLikeFloorOrUnitMarker("18th Floor")).isTrue();

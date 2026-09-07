@@ -41,7 +41,26 @@ public final class CommaSegmentCityExtractor {
      *  {@code withNeighborhood} is true and a third segment exists. With fewer than 2 segments,
      *  no city is extracted and the whole input becomes {@code streetLine}. */
     public static Result extractLastAsCity(List<String> segments, boolean withNeighborhood) {
+        return extractLastAsCity(segments, withNeighborhood, false);
+    }
+
+    /** Same as {@link #extractLastAsCity(List, boolean)}, but when {@code segments} has exactly
+     *  one entry <em>and</em> {@code singleSegmentIsCity} is {@code true}, that entry is
+     *  extracted as CITY instead of falling through to {@code streetLine}. Pass {@code true} only
+     *  when the caller already stripped a confirmed trailing self-reference (via
+     *  {@link SelfReferenceStripper#strip}) down to this one segment -- a bare single-segment
+     *  input that was <em>never</em> preceded by anything (e.g. a lone street name with no city
+     *  or country at all) is genuinely ambiguous and must keep resolving to {@code streetLine},
+     *  which is why this is opt-in rather than the default. */
+    public static Result extractLastAsCity(
+            List<String> segments, boolean withNeighborhood, boolean singleSegmentIsCity) {
         int len = segments.size();
+        if (len == 1 && singleSegmentIsCity) {
+            String city = segments.get(0).trim();
+            if (!city.isEmpty()) {
+                return new Result(city, null, "");
+            }
+        }
         if (len < 2) {
             return new Result(null, null, String.join(", ", segments).trim());
         }

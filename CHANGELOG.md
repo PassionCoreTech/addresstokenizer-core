@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor versions may contain breaking changes, as noted in the README's
 API Stability section).
 
+## [0.6.1] - 2026-09-06
+
+### Fixed
+
+- `UsAddressParser`/`UkAddressParser`: an input with only a city and a self-referencing
+  country name and nothing else (e.g. `"London, United Kingdom"`, `"Chicago, USA"` — no
+  street, no postal code) previously produced no `CITY` token at all — the whole city
+  name was mislabeled `STREET_NAME` instead. Now correctly resolves to a `CITY` token
+  and no `STREET_NAME` token. A bare single-segment input with no self-reference to
+  strip (e.g. a lone street name with nothing else) is unaffected and still resolves to
+  `STREET_NAME` as before, since that shape is genuinely ambiguous.
+
 ## [0.6.0] - 2026-09-05
 
 ### Added
@@ -226,6 +238,7 @@ API Stability section).
   country parsers for US, UK, DE, FR, AU, CA (including Quebec French),
   Spring Boot auto-configuration, `addresstokenizer-core-sample` app.
 
+[0.6.1]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.6.1
 [0.6.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.6.0
 [0.5.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.5.0
 [0.4.0]: https://github.com/PassionCoreTech/addresstokenizer-core/releases/tag/v0.4.0
